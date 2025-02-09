@@ -1,25 +1,36 @@
 import csv
 import json
 
-KEYS = { "cmp": 16, "p_att": 17, "p_yds": 20, "p_td": 21, "int": 22, "sk": 26, "yds": 27, "r_att": 34, "r_yds": 35, "r_td": 37, "fum": (43, 22) }
+YEAR = 2024
+FILE_NAME = "PFF_{stat}_{year}.csv"
 
-with open("json/teams.json", "r") as j:
-    teams = json.load(j)
+files = [
+    "Passing",
+    "Passing_Depth",
+    "Passing_Pressure",
+    "Receiving",
+    "Receiving_Depth",
+    "Receiving_Scheme",
+    "Rushing",
+    "Blocking",
+    "Blocking_Pass",
+    "Blocking_Rush",
+    "Defense",
+    "Defense_Pass_Rush",
+    "Defense_Run_Defense",
+    "Defense_Coverage",
+    "Defense_Coverage_Scheme"
+]
 
-data = {}
-year = 2024
-with open(f"csv/{year} NFL Team Stats.csv") as c:
-    reader = csv.reader(c)
 
-    for row in reader:
+for f in files:
+    file_name = FILE_NAME.format(stat=f, year=YEAR)
 
-        team = row[1]
-        if team == "Team":
-            continue
+    with open(f"csv/{file_name}", "r") as c:
+        reader = csv.reader(c)
 
-        team_id = teams[team]
-        if team_id not in data:
-            data[team_id] = {}
+        for row in reader:
+            a = 5
         
 
         
