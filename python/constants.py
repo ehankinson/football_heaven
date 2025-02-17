@@ -25,28 +25,6 @@ PASSING = {
 
 PASSING_DEPTH = {
     "BEHIND_LOS": {
-        "GENERAL": {
-            "behind_los_aimed_passes": 9,
-            "behind_los_attempts": 10,
-            "behind_los_avg_depth_of_target": 12,
-            "behind_los_bats": 14,
-            "behind_los_big_time_throws": 15,
-            "behind_los_completions": 18,
-            "behind_los_def_gen_pressures": 19,
-            "behind_los_dropbacks": 21,
-            "behind_los_drops": 22,
-            "behind_los_first_downs": 23,
-            "behind_los_hit_as_threw": 25,
-            "behind_los_interceptions": 26,
-            "behind_los_passing_snaps": 27,
-            "behind_los_sacks": 31,
-            "behind_los_scrambles": 32,
-            "behind_los_spikes": 33,
-            "behind_los_thrown_aways": 34,
-            "behind_los_touchdowns": 35,
-            "behind_los_turnover_worthy_plays": 36,
-            "behind_los_yards": 38
-        },
         "CENTRAL": {
             "center_behind_los_aimed_passes": 41,
             "center_behind_los_attempts": 42,
@@ -115,28 +93,6 @@ PASSING_DEPTH = {
         }
     },
     "DEEP": {
-        "GENERAL": {
-            "deep_aimed_passes": 170,
-            "deep_attempts": 171,
-            "deep_avg_depth_of_target": 173,
-            "deep_bats": 175,
-            "deep_big_time_throws": 176,
-            "deep_completions": 179,
-            "deep_def_gen_pressures": 180,
-            "deep_dropbacks": 182,
-            "deep_drops": 183,
-            "deep_first_downs": 184,
-            "deep_hit_as_threw": 186,
-            "deep_interceptions": 187,
-            "deep_passing_snaps": 188,
-            "deep_sacks": 192,
-            "deep_scrambles": 193,
-            "deep_spikes": 194,
-            "deep_thrown_aways": 195,
-            "deep_touchdowns": 196,
-            "deep_turnover_worthy_plays": 197,
-            "deep_yards": 199            
-        },
         "CENTRAL": {
             "center_deep_aimed_passes": 73,
             "center_deep_attempts": 74,
@@ -205,28 +161,6 @@ PASSING_DEPTH = {
         }
     },
     "INTERMEDIATE": {
-        "GENERAL": {
-            "medium_aimed_passes": 331,
-            "medium_attempts": 332,
-            "medium_avg_depth_of_target": 334,
-            "medium_bats": 336,
-            "medium_big_time_throws": 337,
-            "medium_completions": 340,
-            "medium_def_gen_pressures": 341,
-            "medium_dropbacks": 343,
-            "medium_drops": 344,
-            "medium_first_downs": 345,
-            "medium_hit_as_threw": 347,
-            "medium_interceptions": 348,
-            "medium_passing_snaps": 349,
-            "medium_sacks": 353,
-            "medium_scrambles": 354,
-            "medium_spikes": 355,
-            "medium_thrown_aways": 356,
-            "medium_touchdowns": 357,
-            "medium_turnover_worthy_plays": 358,
-            "medium_yards": 360
-        },
         "CENTRAL": {
             "center_medium_aimed_passes": 105,
             "center_medium_attempts": 106,
@@ -295,28 +229,6 @@ PASSING_DEPTH = {
         }
     },
     "SHORT": {
-        "GENERAL": {
-            "short_aimed_passes": 492,
-            "short_attempts": 493,
-            "short_avg_depth_of_target": 495,
-            "short_bats": 497,
-            "short_big_time_throws": 498,
-            "short_completions": 501,
-            "short_def_gen_pressures": 502,
-            "short_dropbacks": 504,
-            "short_drops": 505,
-            "short_first_downs": 506,
-            "short_hit_as_threw": 508,
-            "short_interceptions": 509,
-            "short_passing_snaps": 510,
-            "short_sacks": 514,
-            "short_scrambles": 515,
-            "short_spikes": 516,
-            "short_thrown_aways": 517,
-            "short_touchdowns": 518,
-            "short_turnover_worthy_plays": 519,
-            "short_yards": 521
-        },
         "CENTRAL": {
             "center_short_aimed_passes": 137,
             "center_short_attempts": 138,
