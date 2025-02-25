@@ -48,20 +48,14 @@ class DB():
     
 
 
-    def create_table(self, table_name: str):
-        query = f"""
-            CREATE TABLE {table_name} (
-                Team_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                Team_Name TEXT UNIQUE NOT NULL
-            )                   
-        """
+    def create_table(self, query: str):
         self.cursor.execute(query)
         self.conn.commit()
 
 
 
-    def get_game_id(self, year: int, week: int, team: str) -> int:
-        self.cursor.execute("SELECT Game_ID FROM GAME_DATA WHERE Year = ? AND Week = ? and Team = ?", (year, week, team))
+    def get_game_id(self, year: int, week: int, team_id: int) -> int:
+        self.cursor.execute("SELECT Game_ID FROM GAME_DATA WHERE Year = ? AND Week = ? and Team_ID = ?", (year, week, team_id))
         return self.cursor.fetchone()[0]
 
 
@@ -70,7 +64,6 @@ class DB():
         self.cursor.execute("SELECT Team_ID FROM TEAMS WHERE Team_Name = ?", (team,))
         result = self.cursor.fetchone()
         return result[0] if result is not None else None
-
 
 
 
@@ -99,13 +92,12 @@ class DB():
 
     
 
-
-    def insert_game(self, year: int, week: int, team_name: str) -> None:
+    def insert_game(self, game_id: int, team_id: int, year: int, week: int, opponent_id: int, location: str) -> None:
         query = """
-            INSERT OR IGNORE INTO GAME_DATA (Game_ID, Year, Week, Team)
-            VALUES ((SELECT COALESCE(MAX(Game_ID), 0) + 1 FROM GAME_DATA), ?, ?, ?)
+            INSERT OR IGNORE INTO GAME_DATA (Game_ID, Team_ID, Year, Week, Opponent_ID, Location)
+            VALUES (?, ?, ?, ?, ?, ?)
         """
-        self.cursor.execute(query, (year, week, team_name))
+        self.cursor.execute(query, (game_id, team_id, year, week, opponent_id, location))
         self.conn.commit()
     
 
@@ -113,49 +105,60 @@ class DB():
     def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, _type: str):
         stats = [int(row[2]), game_id, team_id, _type]
 
-        for i, val in enumerate(values.values()):
-            if i != 2:
-                stats.append(int(row[val]))
-            else:
+        for key, val in values.items():
+            if key == "avg_depth_of_target":
                 if row[val] == '':
                     stats.append(0)
                     continue
 
-                new_value = round(float(row[val]) * int(row[val - 2]), 0)
+                new_value = int(round(float(row[val]) * int(row[val - 2]), 0))
                 stats.append(new_value)
+            elif key == "grade_pass":
+                stats.append(float(row[val]))
+            else:
+                stats.append(int(row[val]))
 
         query = """
-            INSERT INTO PASSING (Player_ID, Game_ID, Team_ID, Type, aimed_passes, attempts, avg_depth_of_target, bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, touchdowns, turnover_worthy_plays, yards)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO PASSING (Player_ID, Game_ID, Team_ID, Type, Year, aimed_passes, attempts, avg_depth_of_target, bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, touchdowns, turnover_worthy_plays, yards, grade_pass)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         self.cursor.execute(query, (stats))
         self.conn.commit()
         
 
 
-    def insert_passing(self, row: list, year: int, week: int, team: str):
-        game_id = self.get_game_id(year, week, team)
+    def insert_passing(self, row: list, year: int, week: int, team: str, passing: str) -> None:
         team_id = self.get_team_id(team)
-        self._add_into_passing(row, PASSING, game_id, team_id, "passing")
+        game_id = self.get_game_id(year, week, team_id)
 
-
-
-    def insert_passing_depth(self, row: list, year: int, week: int, team: str):
-        game_id = self.get_game_id(year, week, team)
-        team_id = self.get_team_id(team)
-        for depth in PASSING_DEPTH:
-            for area in PASSING_DEPTH[depth]:
-                self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, f"{depth.lower()}_{area.lower()}")
+        if passing == "PASSING":
+            self._add_into_passing(row, PASSING, game_id, team_id, "passing")
+        elif passing == "PASSING_DEPTh":
+            for depth in PASSING_DEPTH:
+                for area in PASSING_DEPTH[depth]:
+                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, f"{depth.lower()}_{area.lower()}")
+        else:
+            for pre in PASSING_PRESSURE:
+                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, pre.lower())
     
 
 
-    def insert_passing_pressure(self, row: list, year: int, week: int, team: str):
-        game_id = self.get_game_id(year, week, team)
-        team_id = self.get_team_id(team)
-        for pre in PASSING_PRESSURE:
-            self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, pre.lower())
+    def insert_game_data(self) -> None:
+        with open("csv/games.csv", "r") as c:
+            reader = csv.reader(c)
+            for i, row in enumerate(reader):
 
-    
+                if row[1] == 'Year':
+                    continue
+
+                team_id = self.get_team_id(row[0])
+                year = int(row[1])
+                week = int(row[2])
+                opp_id = self.get_team_id(row[3])
+
+                location = row[4]
+                self.insert_game(i + 1, team_id, year, week, opp_id, location)
+
 
 
     def insert_values(self, start_year: int, end_year: int):
@@ -178,19 +181,31 @@ class DB():
                         player_id = row[2]
                         player_name = row[1]
                         pos = row[3]
-                        # self.insert_game(year, week, team_name)
-                        # self.insert_player(player_id, player_name, pos)
-                        # self.insert_team(team_name)
+                        self.insert_player(player_id, player_name, pos)
+                        self.insert_team(team_name)
+                        
                         
                         if info == "Passing":
-                            self.insert_passing(row, year, week, team_name)
+                            self.insert_passing(row, year, week, team_name, "PASSING")
                         # elif info == "Passing_Depth":
-                        #     self.insert_passing_depth(row, year, week, team_name)
+                        #     self.insert_passing_depth(row, year, week, team_name, "PASSING_DEPTH")
                         # elif info == "Passing_Pressure":
-                            # self.insert_passing_pressure(row, year, week, team_name)
+                        #     self.insert_passing_pressure(row, year, week, team_name, "PASSING_PRESSURE")
 
         self.end()
     
+
+
+    def print_table_columns(self, table_name: str) -> None:
+        query = f"PRAGMA table_info({table_name})"
+        self.cursor.execute(query)
+        columns = self.cursor.fetchall()
+        
+        print(f"\nColumns in {table_name}:")
+        for col in columns:
+            # col contains: (id, name, type, notnull, default_value, pk)
+            print(f"- {col[1]} ({col[2]})")
+
 
 
 if __name__ == "__main__":
@@ -198,4 +213,5 @@ if __name__ == "__main__":
     start_year = 2006
     end_year = 2025
 
+    # db.print_table_columns("PASSING")
     db.insert_values(start_year, end_year)
