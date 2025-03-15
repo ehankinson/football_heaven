@@ -1,4 +1,5 @@
 import csv
+import time
 import sqlite3
 
 from constants import *
@@ -29,7 +30,7 @@ class DB():
     
 
 
-    def end(self) -> None:
+    def kill(self) -> None:
         self.conn.close()
     
 
@@ -102,8 +103,8 @@ class DB():
     
 
 
-    def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, _type: str):
-        stats = [int(row[2]), game_id, team_id, _type]
+    def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str):
+        stats = [int(row[2]), game_id, team_id, _type, year]
 
         for key, val in values.items():
             if key == "avg_depth_of_target":
@@ -119,8 +120,13 @@ class DB():
                 stats.append(int(row[val]))
 
         query = """
-            INSERT INTO PASSING (Player_ID, Game_ID, Team_ID, Type, Year, aimed_passes, attempts, avg_depth_of_target, bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, touchdowns, turnover_worthy_plays, yards, grade_pass)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO PASSING (
+                Player_ID, Game_ID, Team_ID, Type, Year, aimed_passes, attempts, avg_depth_of_target,
+                bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, 
+                interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, 
+                touchdowns, turnover_worthy_plays, yards, grade_pass
+            ) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         self.cursor.execute(query, (stats))
         self.conn.commit()
@@ -132,14 +138,14 @@ class DB():
         game_id = self.get_game_id(year, week, team_id)
 
         if passing == "PASSING":
-            self._add_into_passing(row, PASSING, game_id, team_id, "passing")
+            self._add_into_passing(row, PASSING, game_id, team_id, year, "passing")
         elif passing == "PASSING_DEPTh":
             for depth in PASSING_DEPTH:
                 for area in PASSING_DEPTH[depth]:
-                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, f"{depth.lower()}_{area.lower()}")
+                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}")
         else:
             for pre in PASSING_PRESSURE:
-                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, pre.lower())
+                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, year, pre.lower())
     
 
 
@@ -192,7 +198,7 @@ class DB():
                         # elif info == "Passing_Pressure":
                         #     self.insert_passing_pressure(row, year, week, team_name, "PASSING_PRESSURE")
 
-        self.end()
+        self.kill()
     
 
 
@@ -205,6 +211,46 @@ class DB():
         for col in columns:
             # col contains: (id, name, type, notnull, default_value, pk)
             print(f"- {col[1]} ({col[2]})")
+    
+
+
+    def sum_team_stats(self, team: str, year: int, start_week: int = None, end_week: int = None, in_games: list[int] = None):
+        team_id = self.get_team_id(team)
+        base_query = """
+        SELECT 
+            COUNT(DISTINCT GAME_DATA.Game_ID), 
+            SUM(aimed_passes), SUM(attempts), SUM(avg_depth_of_target), SUM(bats),
+            SUM(big_time_throws), SUM(completions), SUM(dropbacks), SUM(drops),
+            SUM(first_downs), SUM(hit_as_threw), SUM(interceptions), SUM(passing_snaps),
+            SUM(penalties), SUM(sacks), SUM(scrambles), SUM(spikes), SUM(thrown_aways),
+            SUM(touchdowns), SUM(turnover_worthy_plays), SUM(yards), SUM(grade_pass)
+        FROM PASSING
+        JOIN GAME_DATA ON PASSING.Game_ID = GAME_DATA.Game_ID
+        WHERE PASSING.Team_ID = ? 
+        AND GAME_DATA.Year = ?
+        """
+
+        params = [team_id, year]
+
+        if start_week is not None:
+            base_query += " AND GAME_DATA.Week >= ?"
+            params.append(start_week)
+
+        if end_week is not None:
+            base_query += " AND GAME_DATA.Week <= ?"
+            params.append(end_week + 1)
+
+        if in_games:  # If a specific list of weeks is provided
+            placeholders = ", ".join("?" for _ in in_games)
+            base_query += f" AND GAME_DATA.Week IN ({placeholders})"
+            params.extend(in_games)
+        start_time = time.time()
+        self.cursor.execute(base_query, tuple(params))
+        result = self.cursor.fetchone()
+        end_time = time.time()
+        print(f"The query time took {end_time - start_time}")
+        
+        return result
 
 
 
@@ -214,4 +260,11 @@ if __name__ == "__main__":
     end_year = 2025
 
     # db.print_table_columns("PASSING")
-    db.insert_values(start_year, end_year)
+    # db.insert_values(start_year, end_year)
+    team = "NO"
+    year = 2018
+    sw = 1
+    ew = 16
+    stats = db.sum_team_stats(team, year, sw, ew)
+    print(stats)
+    db.kill()

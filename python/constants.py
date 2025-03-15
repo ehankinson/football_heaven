@@ -8,7 +8,6 @@ PASSING = {
     "dropbacks": 19, 
     "drops": 20, 
     "first_downs": 21,
-    "grade_pass": 25, 
     "hit_as_threw": 27, 
     "interceptions": 28, 
     "passing_snaps": 29, 
@@ -20,6 +19,7 @@ PASSING = {
     "touchdowns": 38, 
     "turnover_worthy_plays": 39, 
     "yards": 41,
+    "grade_pass": 25
 }
 
 
