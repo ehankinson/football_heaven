@@ -47,6 +47,7 @@ PASSING_DEPTH = {
             "center_behind_los_touchdowns": 67,
             "center_behind_los_turnover_worthy_plays": 68,
             "center_behind_los_yards": 70,
+            "center_behind_los_grade_pass": 56
         },
         "LEFT": {
             "left_behind_los_aimed_passes": 203,
@@ -68,7 +69,8 @@ PASSING_DEPTH = {
             "left_behind_los_thrown_aways": 228,
             "left_behind_los_touchdowns": 229,
             "left_behind_los_turnover_worthy_plays": 230,
-            "left_behind_los_yards": 232
+            "left_behind_los_yards": 232,
+            "left_behind_los_grade_pass": 218
         },
         "RIGHT": {
             "right_behind_los_aimed_passes": 364,
@@ -90,7 +92,8 @@ PASSING_DEPTH = {
             "right_behind_los_thrown_aways": 389,
             "right_behind_los_touchdowns": 390,
             "right_behind_los_turnover_worthy_plays": 391,
-            "right_behind_los_yards": 393
+            "right_behind_los_yards": 393,
+            "right_behind_los_grade_pass": 379
         }
     },
     "DEEP": {
@@ -114,7 +117,8 @@ PASSING_DEPTH = {
             "center_deep_thrown_aways": 98,
             "center_deep_touchdowns": 99,
             "center_deep_turnover_worthy_plays": 100,
-            "center_deep_yards": 102
+            "center_deep_yards": 102,
+            "center_deep_grade_pass": 88
         },
         "LEFT": {
             "left_deep_aimed_passes": 235,
@@ -136,7 +140,8 @@ PASSING_DEPTH = {
             "left_deep_thrown_aways": 260,
             "left_deep_touchdowns": 261,
             "left_deep_turnover_worthy_plays": 262,
-            "left_deep_yards": 264
+            "left_deep_yards": 264,
+            "left_deep_grade_pass": 250
         },
         "RIGHT": {
             "right_deep_aimed_passes": 396,
@@ -158,7 +163,8 @@ PASSING_DEPTH = {
             "right_deep_thrown_aways": 421,
             "right_deep_touchdowns": 422,
             "right_deep_turnover_worthy_plays": 423,
-            "right_deep_yards": 425
+            "right_deep_yards": 425,
+            "right_deep_grade_pass": 411
         }
     },
     "INTERMEDIATE": {
@@ -182,7 +188,8 @@ PASSING_DEPTH = {
             "center_medium_thrown_aways": 130,
             "center_medium_touchdowns": 131,
             "center_medium_turnover_worthy_plays": 132,
-            "center_medium_yards": 134
+            "center_medium_yards": 134,
+            "center_medium_grade_pass": 120
         },
         "LEFT": {
             "left_medium_aimed_passes": 267,
@@ -204,7 +211,8 @@ PASSING_DEPTH = {
             "left_medium_thrown_aways": 292,
             "left_medium_touchdowns": 293,
             "left_medium_turnover_worthy_plays": 294,
-            "left_medium_yards": 296
+            "left_medium_yards": 296,
+            "left_medium_grade_pass": 282
         },
         "RIGHT": {
             "right_medium_aimed_passes": 428,
@@ -226,7 +234,8 @@ PASSING_DEPTH = {
             "right_medium_thrown_aways": 453,
             "right_medium_touchdowns": 454,
             "right_medium_turnover_worthy_plays": 455,
-            "right_medium_yards": 457
+            "right_medium_yards": 457,
+            "right_medium_grade_pass": 443
         }
     },
     "SHORT": {
@@ -250,7 +259,8 @@ PASSING_DEPTH = {
             "center_short_thrown_aways": 162,
             "center_short_touchdowns": 163,
             "center_short_turnover_worthy_plays": 164,
-            "center_short_yards": 166
+            "center_short_yards": 166,
+            "center_short_grade_pass": 152
         },
         "LEFT": {
             "left_short_aimed_passes": 299,
@@ -272,7 +282,8 @@ PASSING_DEPTH = {
             "left_short_thrown_aways": 324,
             "left_short_touchdowns": 325,
             "left_short_turnover_worthy_plays": 326,
-            "left_short_yards": 328
+            "left_short_yards": 328,
+            "left_short_grade_pass": 314
         },
         "RIGHT": {
             "right_short_aimed_passes": 460,
@@ -294,7 +305,8 @@ PASSING_DEPTH = {
             "right_short_thrown_aways": 485,
             "right_short_touchdowns": 486,
             "right_short_turnover_worthy_plays": 487,
-            "right_short_yards": 489
+            "right_short_yards": 489,
+            "right_short_grade_pass": 475
         }
     }
 }
@@ -313,82 +325,86 @@ PASSING_PRESSURE = {
         "blitz_dropbacks": 19,
         "blitz_drops": 21,
         "blitz_first_downs": 22,
-        "blitz_hit_as_threw": 30,
-        "blitz_interceptions": 31,
-        "blitz_passing_snaps": 32,
-        "blitz_sacks": 36,
-        "blitz_scrambles": 37,
-        "blitz_spikes": 38,
-        "blitz_thrown_aways": 39,
-        "blitz_touchdowns": 40,
-        "blitz_turnover_worthy_plays": 41,
-        "blitz_yards": 43
+        "blitz_hit_as_threw": 24,
+        "blitz_interceptions": 25,
+        "blitz_passing_snaps": 26,
+        "blitz_sacks": 30,
+        "blitz_scrambles": 31,
+        "blitz_spikes": 32,
+        "blitz_thrown_aways": 33,
+        "blitz_touchdowns": 34,
+        "blitz_turnover_worthy_plays": 35,
+        "blitz_yards": 37,
+        "blitz_grades_pass": 23,
     },
     "NO_BLITZ": {
-        "no_blitz_aimed_passes": 52,
-        "no_blitz_attempts": 53,
-        "no_blitz_avg_depth_of_target": 54,
-        "no_blitz_bats": 56,
-        "no_blitz_big_time_throws": 57,
-        "no_blitz_completions": 60,
-        "no_blitz_def_gen_pressures": 61,
-        "no_blitz_dropbacks": 63,
-        "no_blitz_drops": 65,
-        "no_blitz_first_downs": 66,
-        "no_blitz_hit_as_threw": 74,
-        "no_blitz_interceptions": 75,
-        "no_blitz_passing_snaps": 76,
-        "no_blitz_sacks": 80,
-        "no_blitz_scrambles": 81,
-        "no_blitz_spikes": 82,
-        "no_blitz_thrown_aways": 83,
-        "no_blitz_touchdowns": 84,
-        "no_blitz_turnover_worthy_plays": 85,
-        "no_blitz_yards": 87
+        "no_blitz_aimed_passes": 46,
+        "no_blitz_attempts": 47,
+        "no_blitz_avg_depth_of_target": 48,
+        "no_blitz_bats": 50,
+        "no_blitz_big_time_throws": 51,
+        "no_blitz_completions": 54,
+        "no_blitz_def_gen_pressures": 55,
+        "no_blitz_dropbacks": 57,
+        "no_blitz_drops": 59,
+        "no_blitz_first_downs": 60,
+        "no_blitz_hit_as_threw": 62,
+        "no_blitz_interceptions": 63,
+        "no_blitz_passing_snaps": 64,
+        "no_blitz_sacks": 68,
+        "no_blitz_scrambles": 69,
+        "no_blitz_spikes": 70,
+        "no_blitz_thrown_aways": 71,
+        "no_blitz_touchdowns": 72,
+        "no_blitz_turnover_worthy_plays": 73,
+        "no_blitz_yards": 75,
+        "no_blitz_grades_pass": 61,
     },
     "NO_PRESSURE": {
-        "no_pressure_aimed_passes": 90,
-        "no_pressure_attempts": 91,
-        "no_pressure_avg_depth_of_target": 92,
-        "no_pressure_bats": 94,
-        "no_pressure_big_time_throws": 95,
-        "no_pressure_completions": 98,
-        "no_pressure_def_gen_pressures": 99,
-        "no_pressure_dropbacks": 101,
-        "no_pressure_drops": 103,
-        "no_pressure_first_downs": 104,
-        "no_pressure_hit_as_threw": 112,
-        "no_pressure_interceptions": 113,
-        "no_pressure_passing_snaps": 114,
-        "no_pressure_sacks": 118,
-        "no_pressure_scrambles": 119,
-        "no_pressure_spikes": 120,
-        "no_pressure_thrown_aways": 121,
-        "no_pressure_touchdowns": 122,
-        "no_pressure_turnover_worthy_plays": 123,
-        "no_pressure_yards": 125
+        "no_pressure_aimed_passes": 78,
+        "no_pressure_attempts": 79,
+        "no_pressure_avg_depth_of_target": 80,
+        "no_pressure_bats": 82,
+        "no_pressure_big_time_throws": 83,
+        "no_pressure_completions": 86,
+        "no_pressure_def_gen_pressures": 87,
+        "no_pressure_dropbacks": 89,
+        "no_pressure_drops": 91,
+        "no_pressure_first_downs": 92,
+        "no_pressure_hit_as_threw": 94,
+        "no_pressure_interceptions": 95,
+        "no_pressure_passing_snaps": 96,
+        "no_pressure_sacks": 100,
+        "no_pressure_scrambles": 101,
+        "no_pressure_spikes": 102,
+        "no_pressure_thrown_aways": 103,
+        "no_pressure_touchdowns": 104,
+        "no_pressure_turnover_worthy_plays": 105,
+        "no_pressure_yards": 107,
+        "no_pressure_grades_pass": 93,
     },
     "PRESSURE": {
-        "pressure_aimed_passes": 129,
-        "pressure_attempts": 130,
-        "pressure_avg_depth_of_target": 131,
-        "pressure_bats": 133,
-        "pressure_big_time_throws": 134,
-        "pressure_completions": 137,
-        "pressure_def_gen_pressures": 138,
-        "pressure_dropbacks": 140,
-        "pressure_drops": 142,
-        "pressure_first_downs": 143,
-        "pressure_hit_as_threw": 151,
-        "pressure_interceptions": 152,
-        "pressure_passing_snaps": 153,
-        "pressure_sacks": 157,
-        "pressure_scrambles": 158,
-        "pressure_spikes": 159,
-        "pressure_thrown_aways": 160,
-        "pressure_touchdowns": 161,
-        "pressure_turnover_worthy_plays": 162,
-        "pressure_yards": 164,
+        "pressure_aimed_passes": 111,
+        "pressure_attempts": 112,
+        "pressure_avg_depth_of_target": 113,
+        "pressure_bats": 115,
+        "pressure_big_time_throws": 116,
+        "pressure_completions": 119,
+        "pressure_def_gen_pressures": 120,
+        "pressure_dropbacks": 122,
+        "pressure_drops": 124,
+        "pressure_first_downs": 125,
+        "pressure_hit_as_threw": 127,
+        "pressure_interceptions": 128,
+        "pressure_passing_snaps": 129,
+        "pressure_sacks": 133,
+        "pressure_scrambles": 134,
+        "pressure_spikes": 135,
+        "pressure_thrown_aways": 136,
+        "pressure_touchdowns": 137,
+        "pressure_turnover_worthy_plays": 138,
+        "pressure_yards": 140,
+        "pressure_grades_pass": 126,
     }
 }
 

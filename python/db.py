@@ -12,18 +12,18 @@ class DB():
         self.START_FILE = "csv/PFF_{info}_{year}.csv"
         self.INFO = [
             "Passing",
-            # "Passing_Depth",
-            # "Passing_Pressure",
-            # "Receiving",
-            # "Receiving_Depth",
-            # "Receiving_Scheme",
-            # "Rushing",
-            # "Blocking_Pass",
-            # "Blocking_Rush",
-            # "Defense_Coverage",
-            # "Defense_Coverage_Scheme",
-            # "Defense_Pass_Rush",
-            # "Defense_Run_Defense"
+            "Passing_Depth",
+            "Passing_Pressure",
+            # # "Receiving",
+            # # "Receiving_Depth",
+            # # "Receiving_Scheme",
+            # # "Rushing",
+            # # "Blocking_Pass",
+            # # "Blocking_Rush",
+            # # "Defense_Coverage",
+            # # "Defense_Coverage_Scheme",
+            # # "Defense_Pass_Rush",
+            # # "Defense_Run_Defense"
         ]
         self.conn = sqlite3.connect("db/football.db")
         self.cursor = self.conn.cursor()
@@ -107,17 +107,28 @@ class DB():
         stats = [int(row[2]), game_id, team_id, _type, year]
 
         for key, val in values.items():
-            if key == "avg_depth_of_target":
+            if "avg_depth_of_target" in key:
                 if row[val] == '':
                     stats.append(0)
                     continue
 
                 new_value = int(round(float(row[val]) * int(row[val - 2]), 0))
                 stats.append(new_value)
-            elif key == "grade_pass":
+            elif "grades_pass" in key or "grade_pass" in key:
+                if row[val] == '':
+                    stats.append(0)
+                    continue
+
                 stats.append(float(row[val]))
             else:
-                stats.append(int(row[val]))
+                try:
+                    number = int(row[val])
+                except:
+                    if row[val] == '':
+                        number = 0
+                    else:
+                        number = int(float(row[val]))
+                stats.append(number)
 
         query = """
             INSERT INTO PASSING (
@@ -135,11 +146,15 @@ class DB():
 
     def insert_passing(self, row: list, year: int, week: int, team: str, passing: str) -> None:
         team_id = self.get_team_id(team)
-        game_id = self.get_game_id(year, week, team_id)
+        try:
+            game_id = self.get_game_id(year, week, team_id)
+        except:
+            print(f"Game ID not found for {team} ({team_id}) in {year} week {week}")
+            return
 
         if passing == "PASSING":
             self._add_into_passing(row, PASSING, game_id, team_id, year, "passing")
-        elif passing == "PASSING_DEPTh":
+        elif passing == "PASSING_DEPTH":
             for depth in PASSING_DEPTH:
                 for area in PASSING_DEPTH[depth]:
                     self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}")
@@ -193,10 +208,10 @@ class DB():
                         
                         if info == "Passing":
                             self.insert_passing(row, year, week, team_name, "PASSING")
-                        # elif info == "Passing_Depth":
-                        #     self.insert_passing_depth(row, year, week, team_name, "PASSING_DEPTH")
-                        # elif info == "Passing_Pressure":
-                        #     self.insert_passing_pressure(row, year, week, team_name, "PASSING_PRESSURE")
+                        elif info == "Passing_Depth":
+                            self.insert_passing(row, year, week, team_name, "PASSING_DEPTH")
+                        elif info == "Passing_Pressure":
+                            self.insert_passing(row, year, week, team_name, "PASSING_PRESSURE")
 
         self.kill()
     
@@ -258,13 +273,16 @@ if __name__ == "__main__":
     db = DB()
     start_year = 2006
     end_year = 2025
-
-    # db.print_table_columns("PASSING")
-    # db.insert_values(start_year, end_year)
-    team = "NO"
-    year = 2018
-    sw = 1
-    ew = 16
-    stats = db.sum_team_stats(team, year, sw, ew)
-    print(stats)
-    db.kill()
+    db.delete_table_values("PASSING")
+    print("Cleared table PASSING")
+    start_time = time.time()
+    db.insert_values(start_year, end_year + 1)        
+    end_time = time.time()
+    print(f"The query time took {end_time - start_time}")
+    # team = "NO"
+    # year = 2018
+    # sw = 1
+    # ew = 16
+    # stats = db.sum_team_stats(team, year, sw, ew)
+    # print(stats)
+    # db.kill()
