@@ -14,9 +14,9 @@ class DB():
             "Passing",
             "Passing_Depth",
             "Passing_Pressure",
-            # # "Receiving",
-            # # "Receiving_Depth",
-            # # "Receiving_Scheme",
+            "Receiving",
+            "Receiving_Depth",
+            "Receiving_Scheme",
             # # "Rushing",
             # # "Blocking_Pass",
             # # "Blocking_Rush",
@@ -27,6 +27,12 @@ class DB():
         ]
         self.conn = sqlite3.connect("db/football.db")
         self.cursor = self.conn.cursor()
+        
+        # Add SQLite optimizations for bulk operations
+        self.cursor.execute("PRAGMA synchronous = OFF")
+        self.cursor.execute("PRAGMA journal_mode = MEMORY")
+        self.cursor.execute("PRAGMA temp_store = MEMORY")
+        self.cursor.execute("PRAGMA cache_size = 10000")
     
 
 
@@ -139,9 +145,47 @@ class DB():
             ) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
-        self.cursor.execute(query, (stats))
-        self.conn.commit()
-        
+        self.cursor.execute(query, stats)
+    
+
+
+    def _add_into_receiving(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str):
+        stats = [int(row[2]), game_id, team_id, _type, year]
+
+        for key, val in values.items():
+            if "depth_of_target" in key:
+                if row[val] == '':
+                    stats.append(0)
+                    continue
+
+                stats.append(float(row[val]))
+            elif "grades_hands_drop" in key or "grades_pass_route" in key:
+                if row[val] == '':
+                    stats.append(0)
+                    continue
+
+                stats.append(float(row[val]))
+            else:
+                try:
+                    number = int(row[val])
+                except:
+                    if row[val] == '':
+                        number = 0
+                    else:
+                        number = int(float(row[val]))
+                stats.append(number)
+
+        query = """
+            INSERT INTO RECEIVING (
+                Player_ID, Game_ID, Team_ID, Type, Year, avoided_tackles, contested_reception_,
+                depth_of_target, drops, first_downs, fumbles, interceptions, pass_blocks,
+                pass_plays, penalties, receptions, routes, slot_snaps, targets, touchdowns,
+                wide_snaps, yards, yards_after_catch, grades_hands_drop, grades_pass_route
+            ) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        """
+        self.cursor.execute(query, stats)
+
 
 
     def insert_passing(self, row: list, year: int, week: int, team: str, passing: str) -> None:
@@ -164,6 +208,26 @@ class DB():
     
 
 
+    def insert_receiving(self, row: list, year: int, week: int, team: str, receiving: str) -> None:
+        team_id = self.get_team_id(team)
+        try:
+            game_id = self.get_game_id(year, week, team_id)
+        except:
+            print(f"Game ID not found for {team} ({team_id}) in {year} week {week}")
+            return
+
+        if receiving == "RECEIVING":
+            self._add_into_receiving(row, RECEIVING, game_id, team_id, year, "receiving")
+        elif receiving == "RECEIVING_DEPTH":
+            for depth in RECEIVING_DEPTH:
+                for area in RECEIVING_DEPTH[depth]:
+                    self._add_into_receiving(row, RECEIVING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}")
+        else:  # RECEIVING_SCHEME
+            for scheme in RECEIVING_SCHEME:
+                self._add_into_receiving(row, RECEIVING_SCHEME[scheme], game_id, team_id, year, scheme.lower())
+    
+
+
     def insert_game_data(self) -> None:
         with open("csv/games.csv", "r") as c:
             reader = csv.reader(c)
@@ -183,6 +247,9 @@ class DB():
 
 
     def insert_values(self, start_year: int, end_year: int):
+        batch_size = 1_000  # Adjust based on your data size
+        records_processed = 0
+        
         for year in range(start_year, end_year):
             for info in self.INFO:
                 csv_file = self.START_FILE.format(info=info, year=year)
@@ -191,6 +258,9 @@ class DB():
                     reader = csv.reader(c)
 
                     print(f"On file: {csv_file}")
+                    
+                    # Begin transaction
+                    self.conn.execute("BEGIN TRANSACTION")
                     
                     for row in reader:
 
@@ -212,6 +282,22 @@ class DB():
                             self.insert_passing(row, year, week, team_name, "PASSING_DEPTH")
                         elif info == "Passing_Pressure":
                             self.insert_passing(row, year, week, team_name, "PASSING_PRESSURE")
+                        elif info == "Receiving":
+                            self.insert_receiving(row, year, week, team_name, "RECEIVING")
+                        elif info == "Receiving_Depth":
+                            self.insert_receiving(row, year, week, team_name, "RECEIVING_DEPTH")
+                        elif info == "Receiving_Scheme":
+                            self.insert_receiving(row, year, week, team_name, "RECEIVING_SCHEME")
+                        
+                        records_processed += 1
+                        
+                        # Commit in batches
+                        if records_processed % batch_size == 0:
+                            self.conn.commit()
+                            self.conn.execute("BEGIN TRANSACTION")
+                    
+                    # Commit any remaining changes
+                    self.conn.commit()
 
         self.kill()
     
@@ -272,17 +358,13 @@ class DB():
 if __name__ == "__main__":
     db = DB()
     start_year = 2006
-    end_year = 2025
+    end_year = 2024
     db.delete_table_values("PASSING")
-    print("Cleared table PASSING")
+    db.delete_table_values("RECEIVING")
+    print("Cleared Tables")
     start_time = time.time()
     db.insert_values(start_year, end_year + 1)        
     end_time = time.time()
     print(f"The query time took {end_time - start_time}")
-    # team = "NO"
-    # year = 2018
-    # sw = 1
-    # ew = 16
-    # stats = db.sum_team_stats(team, year, sw, ew)
-    # print(stats)
-    # db.kill()
+    
+    db.kill()
