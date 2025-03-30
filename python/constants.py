@@ -742,4 +742,27 @@ RECEIVING_SCHEME = {
         "zone_grades_hands_drop": 49,
         "zone_grades_pass_route": 50,
     }
+},
+
+
+
+RUSHING = {
+    "attempts": 6,
+    "avoided_tackles": 7,
+    "brekaway_attempts": 8,
+    "breakaway_yards": 10,
+    "designed_yards": 12,
+    "explosive": 18,
+    "first_downs": 19,
+    "fumbles": 21,
+    "gap_attempts": 22,
+    "penalties": 32,
+    "run_plays": 36,
+    "scramble_yards": 37,
+    "scrambles": 38,
+    "touchdowns": 41,
+    "yards": 42,
+    "yards_after_contact": 43,
+    "zone_attempts": 47,
+    "grades_hands_fumble": 23
 }

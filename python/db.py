@@ -153,6 +153,10 @@ class DB():
         stats = [int(row[2]), game_id, team_id, _type, year]
 
         for key, val in values.items():
+
+            if val is None:
+                val = 0
+
             if "depth_of_target" in key:
                 if row[val] == '':
                     stats.append(0)
@@ -177,10 +181,10 @@ class DB():
 
         query = """
             INSERT INTO RECEIVING (
-                Player_ID, Game_ID, Team_ID, Type, Year, avoided_tackles, contested_reception_,
-                depth_of_target, drops, first_downs, fumbles, interceptions, pass_blocks,
-                pass_plays, penalties, receptions, routes, slot_snaps, targets, touchdowns,
-                wide_snaps, yards, yards_after_catch, grades_hands_drop, grades_pass_route
+                Player_ID, Game_ID, Team_ID, Type, Year, avoided_tackles, contested_reception,
+                contested_targets, drops, first_downs, fumbles, inline_snaps, interceptions,
+                penalties, receptions, routes, slot_snaps, targets, touchdowns, wide_snaps,
+                yards, yards_after_catch, grades_hands_drop, grades_pass_route
             ) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
@@ -357,14 +361,47 @@ class DB():
 
 if __name__ == "__main__":
     db = DB()
-    start_year = 2006
-    end_year = 2024
-    db.delete_table_values("PASSING")
-    db.delete_table_values("RECEIVING")
-    print("Cleared Tables")
-    start_time = time.time()
-    db.insert_values(start_year, end_year + 1)        
-    end_time = time.time()
-    print(f"The query time took {end_time - start_time}")
+    db.drop_table("RUSHING")
+    query = """
+        CREATE TABLE RUSHING (
+            Player_ID INTEGER NOT NULL,
+            Game_ID INTEGER NOT NULL,
+            Team_ID INTEGER NOT NULL,
+            Type TEXT NOT NULL,
+            Year INTEGER NOT NULL,
+            attempts INTEGER DEFAULT 0,
+            avoided_tackles INTEGER DEFAULT 0,
+            breakaway_attempts INTEGER DEFAULT 0,
+            breakaway_yards INTEGER DEFAULT 0,
+            designed_yards INTEGER DEFAULT 0,
+            explosive INTEGER DEFAULT 0,
+            first_downs INTEGER DEFAULT 0,
+            fumbles INTEGER DEFAULT 0,
+            gap_attempts INTEGER DEFAULT 0,
+            penalties INTEGER DEFAULT 0,
+            run_plays INTEGER DEFAULT 0,
+            scramble_yards INTEGER DEFAULT 0,
+            scrambles INTEGER DEFAULT 0,
+            touchdowns INTEGER DEFAULT 0,
+            yards INTEGER DEFAULT 0,
+            yards_after_contact INTEGER DEFAULT 0,
+            zone_attempts INTEGER DEFAULT 0,
+            grades_hands_fumble REAL DEFAULT 0.0,
+            FOREIGN KEY (Player_ID) REFERENCES PLAYERS(Player_ID),
+            FOREIGN KEY (Game_ID) REFERENCES GAME_DATA(Game_ID),
+            FOREIGN KEY (Team_ID) REFERENCES TEAMS(Team_ID),
+            PRIMARY KEY (Year, Type, Player_ID, Game_ID, Team_ID)
+        )
+    """
+    db.create_table(query)
+    # start_year = 2006
+    # end_year = 2024
+    # db.delete_table_values("PASSING")
+    # db.delete_table_values("RECEIVING")
+    # print("Cleared Tables")
+    # start_time = time.time()
+    # db.insert_values(start_year, end_year + 1)        
+    # end_time = time.time()
+    # print(f"The query time took {end_time - start_time}")
     
-    db.kill()
+    # db.kill()
