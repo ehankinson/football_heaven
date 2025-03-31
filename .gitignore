@@ -5,6 +5,11 @@ Cargo.lock
 .DS_Store
 /db
 
+# Node.js files in root directory
+/node_modules
+/package-lock.json
+/package.json
+
 # Frontend specific
 /frontend/node_modules
 /frontend/build

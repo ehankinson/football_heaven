@@ -363,7 +363,10 @@ class DB():
 if __name__ == "__main__":
     db = DB()
     TABLE = "PASSING"
-    start_week = 27
+    year = 2014
+    start_year = 2006
+    end_year = 2024
+    start_week = 1
     end_week = 33
     query = f"""
         SELECT {TABLE}.* 
@@ -372,8 +375,9 @@ if __name__ == "__main__":
         JOIN GAME_DATA ON {TABLE}.Game_ID = GAME_DATA.Game_ID
         WHERE PLAYERS.Player_Pos = "QB" AND {TABLE}.Type = "passing"
         AND GAME_DATA.Week >= ? AND GAME_DATA.Week <= ?
+        AND {TABLE}.Year >= ? AND {TABLE}.Year <= ?
     """
-    db.cursor.execute(query, (start_week, end_week))
+    db.cursor.execute(query, (start_week, end_week, start_year, end_year))
     results = db.cursor.fetchall()
     
     fun = {}
@@ -390,8 +394,9 @@ if __name__ == "__main__":
             fun[key].insert(0, 1)
             continue
         
-        total_db = result[11] + fun[key][6]
-        fun_grade_pct = (fun[key][6] / total_db) * fun[key][-1]
+        index = 11 - 4
+        total_db = result[11] + fun[key][index]
+        fun_grade_pct = (fun[key][index] / total_db) * fun[key][-1]
         result_grade_pct = (result[11] / total_db) * result[-1]
         new_grade = fun_grade_pct + result_grade_pct
         
@@ -407,7 +412,7 @@ if __name__ == "__main__":
         
     # adding score
     max_db = 0
-    indexs = {4: -1, 5: 3, 9: 1.5, 10: -0.25, 11: -6, 13: -1, 17: 6, 18: 0.05}
+    indexs = {4: -1, 5: 3, 9: 0.25, 10: -0.25, 11: -6, 18: 6, 19: -3, 20: 0.05}
     for player, stats in fun.items():
         max_db = max(max_db, stats[7])
         total_score = 0
@@ -425,7 +430,7 @@ if __name__ == "__main__":
     table = PrettyTable()
     table.field_names = ["Rank", "Name", "Year", "GP", "DB", "CMP", "AIM", "ATT", "YDS", "TD", "INT", "1D", "BTT", "TW", "DRP", "BAT", "HAT", "TA", "SK", "PASS", "FP", "SPRS"]
     
-    total = 1000
+    total = 1_000_000
     rank = 1
     for player, stats in fun.items():
         if not stats[7] > max_db * 0.25:
