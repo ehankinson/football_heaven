@@ -1,6 +1,7 @@
 import csv
 import time
 import sqlite3
+from prettytable import PrettyTable
 
 from constants import *
 
@@ -361,39 +362,124 @@ class DB():
 
 if __name__ == "__main__":
     db = DB()
-    db.drop_table("RUSHING")
-    query = """
-        CREATE TABLE RUSHING (
-            Player_ID INTEGER NOT NULL,
-            Game_ID INTEGER NOT NULL,
-            Team_ID INTEGER NOT NULL,
-            Type TEXT NOT NULL,
-            Year INTEGER NOT NULL,
-            attempts INTEGER DEFAULT 0,
-            avoided_tackles INTEGER DEFAULT 0,
-            breakaway_attempts INTEGER DEFAULT 0,
-            breakaway_yards INTEGER DEFAULT 0,
-            designed_yards INTEGER DEFAULT 0,
-            explosive INTEGER DEFAULT 0,
-            first_downs INTEGER DEFAULT 0,
-            fumbles INTEGER DEFAULT 0,
-            gap_attempts INTEGER DEFAULT 0,
-            penalties INTEGER DEFAULT 0,
-            run_plays INTEGER DEFAULT 0,
-            scramble_yards INTEGER DEFAULT 0,
-            scrambles INTEGER DEFAULT 0,
-            touchdowns INTEGER DEFAULT 0,
-            yards INTEGER DEFAULT 0,
-            yards_after_contact INTEGER DEFAULT 0,
-            zone_attempts INTEGER DEFAULT 0,
-            grades_hands_fumble REAL DEFAULT 0.0,
-            FOREIGN KEY (Player_ID) REFERENCES PLAYERS(Player_ID),
-            FOREIGN KEY (Game_ID) REFERENCES GAME_DATA(Game_ID),
-            FOREIGN KEY (Team_ID) REFERENCES TEAMS(Team_ID),
-            PRIMARY KEY (Year, Type, Player_ID, Game_ID, Team_ID)
-        )
+    TABLE = "PASSING"
+    start_week = 27
+    end_week = 33
+    query = f"""
+        SELECT {TABLE}.* 
+        FROM {TABLE}
+        JOIN PLAYERS ON {TABLE}.Player_ID = PLAYERS.Player_ID
+        JOIN GAME_DATA ON {TABLE}.Game_ID = GAME_DATA.Game_ID
+        WHERE PLAYERS.Player_Pos = "QB" AND {TABLE}.Type = "passing"
+        AND GAME_DATA.Week >= ? AND GAME_DATA.Week <= ?
     """
-    db.create_table(query)
+    db.cursor.execute(query, (start_week, end_week))
+    results = db.cursor.fetchall()
+    
+    fun = {}
+    
+    for result in results:
+        result = list(result)
+        key = f"{result[0]}_{result[4]}"
+
+        if key not in fun:
+            fun[key] = []
+        
+        if len(fun[key]) == 0:
+            fun[key] = result[5:]
+            fun[key].insert(0, 1)
+            continue
+        
+        total_db = result[11] + fun[key][6]
+        fun_grade_pct = (fun[key][6] / total_db) * fun[key][-1]
+        result_grade_pct = (result[11] / total_db) * result[-1]
+        new_grade = fun_grade_pct + result_grade_pct
+        
+        length = len(result)
+        fun[key][0] += 1
+
+        for i in range(5, length):
+            if i == length - 1:
+                fun[key][-1] = new_grade
+                continue
+            
+            fun[key][i - 4] += result[i]
+        
+    # adding score
+    max_db = 0
+    indexs = {4: -1, 5: 3, 9: 1.5, 10: -0.25, 11: -6, 13: -1, 17: 6, 18: 0.05}
+    for player, stats in fun.items():
+        max_db = max(max_db, stats[7])
+        total_score = 0
+        for index, score in indexs.items():
+            total_score += stats[index] * score
+        
+        stats.append(total_score)
+        stats.append((stats[-2] * 0.65) + ((stats[-1] / stats[0]) * 0.35))
+
+    # sorting
+    fun = dict(sorted(fun.items(), key=lambda x: x[1][-1], reverse=True))
+
+    order = {"gp": 0, "db": 7, "cmp": 6, "aim": 1, "att": 2, "yds": 20, "td": 18, "int": 11, "1d": 9, "btt": 5, "twp": 19, "drp": 8, "bat": 4, "hat": 10, "ta": 17, "sk": 14, "pass": 21}
+    # printing
+    table = PrettyTable()
+    table.field_names = ["Rank", "Name", "Year", "GP", "DB", "CMP", "AIM", "ATT", "YDS", "TD", "INT", "1D", "BTT", "TW", "DRP", "BAT", "HAT", "TA", "SK", "PASS", "FP", "SPRS"]
+    
+    total = 1000
+    rank = 1
+    for player, stats in fun.items():
+        if not stats[7] > max_db * 0.25:
+            continue
+
+        total -= 1
+        if total == 0:
+            break
+        
+        display = []
+        for i in order:
+            display.append(stats[order[i]])
+
+        display.append(stats[-2])
+        display.append(stats[-1])
+
+        query = "SELECT Player_Name FROM PLAYERS WHERE Player_ID = ?"
+        split = player.split("_")
+        player_id = split[0]
+        year = split[1] 
+        db.cursor.execute(query, (player_id,))
+        player_name = db.cursor.fetchone()[0]
+        
+        # Format float values to have 2 decimal places
+        formatted_display = []
+        for value in display:
+            if isinstance(value, float):
+                formatted_display.append(f"{value:.2f}")
+            else:
+                formatted_display.append(value)
+        
+        # Add row to the table with rank
+        table.add_row([rank, player_name, year] + formatted_display)
+        rank += 1
+    
+    # Print the table
+    table.align = "r"  # Right align all columns
+    table.align["Name"] = "l"  # Left align Name column
+    table.align["Rank"] = "r"  # Right align Rank column
+    table.min_width["Rank"] = 4  # Set minimum width for rank column
+    table.sortby = "SPRS"  # Sort by SPRS column
+    table.reversesort = True  # Sort in descending order
+    print(table)
+
+
+
+
+
+
+
+
+
+
+
     # start_year = 2006
     # end_year = 2024
     # db.delete_table_values("PASSING")
@@ -404,4 +490,4 @@ if __name__ == "__main__":
     # end_time = time.time()
     # print(f"The query time took {end_time - start_time}")
     
-    # db.kill()
+    db.kill()
