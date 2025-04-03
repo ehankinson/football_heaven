@@ -13,48 +13,42 @@ class PFFScraper:
     def __init__(self):
         self.chrome_path = '/usr/bin/google-chrome'
         self.links = [
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/passing?week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/passing-depth?split=deep&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/passing-pressure?week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/passing-concept?position=QB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/receiving?position=QB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/receiving-depth?position=WR,TE,RB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/receiving-scheme?position=WR,TE,RB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/rushing?position=WR,TE,RB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/offense-blocking?position=HB,FB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/offense-pass-blocking?position=T,G,C,TE,RB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/offense-run-blocking?position=T,G,C,TE,RB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense?position=T,G,C,TE,RB&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-pass-rush?position=DI,ED,LB,CB,S&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-run?position=DI,ED,LB,CB,S&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-coverage?position=DI,ED,LB,CB,S&week={week}",
-            "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-coverage-scheme?position=LB,CB,S&week={week}"
+            "https://premium.pff.com/ncaa/positions/{year}/SINGLE/passing?division=fbs,fcs,lower&week={week}",
+            "https://premium.pff.com/ncaa/positions/{year}/SINGLE/passing-depth?division=fbs,fcs,lower&position=QB&week={week}",
+            "https://premium.pff.com/ncaa/positions/{year}/SINGLE/passing-pressure?division=fbs&position=QB&week={week}",
+            "https://premium.pff.com/ncaa/positions/{year}/SINGLE/passing-concept?division=fbs&position=QB&split=pa&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/receiving?position=QB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/receiving-depth?position=WR,TE,RB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/receiving-scheme?position=WR,TE,RB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/rushing?position=WR,TE,RB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/offense-blocking?position=HB,FB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/offense-pass-blocking?position=T,G,C,TE,RB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/offense-run-blocking?position=T,G,C,TE,RB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense?position=T,G,C,TE,RB&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-pass-rush?position=DI,ED,LB,CB,S&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-run?position=DI,ED,LB,CB,S&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-coverage?position=DI,ED,LB,CB,S&week={week}",
+            # "https://premium.pff.com/nfl/positions/{year}/SINGLE/defense-coverage-scheme?position=LB,CB,S&week={week}"
         ]
         self.file_names = [
-            "PFF_Passing_{year}.csv",
-            "PFF_Passing_Depth_{year}.csv",
-            "PFF_Passing_Pressure_{year}.csv",
-            "PFF_Passing_Concept_{year}.csv",
-            "PFF_Receiving_{year}.csv",
-            "PFF_Receiving_Depth_{year}.csv",
-            "PFF_Receiving_Scheme_{year}.csv",
-            "PFF_Rushing_{year}.csv",
-            "PFF_Offense_Blocking_{year}.csv",
-            "PFF_Offense_Pass_Blocking_{year}.csv",
-            "PFF_Offense_Run_Blocking_{year}.csv",
-            "PFF_Defense_{year}.csv",
-            "PFF_Defense_Pass_Rush_{year}.csv",
-            "PFF_Defense_Run_{year}.csv",
-            "PFF_Defense_Coverage_{year}.csv",
-            "PFF_Defense_Coverage_Scheme_{year}.csv"
+            "PFF_NCAA_Passing_{year}.csv",
+            "PFF_NCAA_Passing_Depth_{year}.csv",
+            "PFF_NCAA_Passing_Pressure_{year}.csv",
+            "PFF_NCAA_Passing_Concept_{year}.csv",
+            # "PFF_Receiving_{year}.csv",
+            # "PFF_Receiving_Depth_{year}.csv",
+            # "PFF_Receiving_Scheme_{year}.csv",
+            # "PFF_Rushing_{year}.csv",
+            # "PFF_Offense_Blocking_{year}.csv",
+            # "PFF_Offense_Pass_Blocking_{year}.csv",
+            # "PFF_Offense_Run_Blocking_{year}.csv",
+            # "PFF_Defense_{year}.csv",
+            # "PFF_Defense_Pass_Rush_{year}.csv",
+            # "PFF_Defense_Run_{year}.csv",
+            # "PFF_Defense_Coverage_{year}.csv",
+            # "PFF_Defense_Coverage_Scheme_{year}.csv"
         ]
-        self.weeks = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 28, 29, 30, 32]
-        self.playoffs = {
-            28: 29,
-            29: 30,
-            30: 31,
-            32: 32  
-        }
+        self.weeks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
         
         # Setup Chrome options with your profile
         self.chrome_options = webdriver.ChromeOptions()
@@ -78,7 +72,7 @@ class PFFScraper:
                 for count, row in enumerate(reader):
                     if count > 0 and row[1] == "player":
                         continue
-                    row.insert(0, "Week") if count == 0 else row.insert(0, week) if week not in self.playoffs else row.insert(0, self.playoffs[week])
+                    row.insert(0, "Week") if count == 0 else row.insert(0, week)
                     writer = csv.writer(output_file)
                     writer.writerow(row)
         print(f"Finished processing of week {week} for year {year}")

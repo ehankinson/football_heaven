@@ -1,23 +1,23 @@
 import csv
 import time
 import sqlite3
-from prettytable import PrettyTable
 
 from constants import *
-
+from prettytable import PrettyTable
+from queries import get_players_passing, get_passing_grades
 
 
 class DB():
     
     def __init__(self) -> None:
-        self.START_FILE = "csv/PFF_{info}_{year}.csv"
+        self.START_FILE = "csv/PFF_NCAA_{info}_{year}.csv"
         self.INFO = [
             "Passing",
             "Passing_Depth",
             "Passing_Pressure",
-            "Receiving",
-            "Receiving_Depth",
-            "Receiving_Scheme",
+            # "Receiving",
+            # "Receiving_Depth",
+            # "Receiving_Scheme",
             # # "Rushing",
             # # "Blocking_Pass",
             # # "Blocking_Rush",
@@ -39,6 +39,12 @@ class DB():
 
     def kill(self) -> None:
         self.conn.close()
+    
+
+
+    def call_query(self, query: str) -> list[tuple]:
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
     
 
 
@@ -110,8 +116,8 @@ class DB():
     
 
 
-    def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str):
-        stats = [int(row[2]), game_id, team_id, _type, year]
+    def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str, league: str):
+        stats = [int(row[2]), game_id, team_id, _type, year, league]
 
         for key, val in values.items():
             if "avg_depth_of_target" in key:
@@ -139,12 +145,12 @@ class DB():
 
         query = """
             INSERT INTO PASSING (
-                Player_ID, Game_ID, Team_ID, Type, Year, aimed_passes, attempts, avg_depth_of_target,
+                Player_ID, Game_ID, Team_ID, Type, Year, league, aimed_passes, attempts, avg_depth_of_target,
                 bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, 
                 interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, 
                 touchdowns, turnover_worthy_plays, yards, grade_pass
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         self.cursor.execute(query, stats)
     
@@ -193,7 +199,7 @@ class DB():
 
 
 
-    def insert_passing(self, row: list, year: int, week: int, team: str, passing: str) -> None:
+    def insert_passing(self, row: list, year: int, week: int, team: str, passing: str, league: str) -> None:
         team_id = self.get_team_id(team)
         try:
             game_id = self.get_game_id(year, week, team_id)
@@ -202,14 +208,14 @@ class DB():
             return
 
         if passing == "PASSING":
-            self._add_into_passing(row, PASSING, game_id, team_id, year, "passing")
+            self._add_into_passing(row, PASSING, game_id, team_id, year, "passing", league)
         elif passing == "PASSING_DEPTH":
             for depth in PASSING_DEPTH:
                 for area in PASSING_DEPTH[depth]:
-                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}")
+                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}", league)
         else:
             for pre in PASSING_PRESSURE:
-                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, year, pre.lower())
+                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, year, pre.lower(), league)
     
 
 
@@ -251,7 +257,7 @@ class DB():
 
 
 
-    def insert_values(self, start_year: int, end_year: int):
+    def insert_values(self, start_year: int, end_year: int, league: str):
         batch_size = 1_000  # Adjust based on your data size
         records_processed = 0
         
@@ -282,11 +288,11 @@ class DB():
                         
                         
                         if info == "Passing":
-                            self.insert_passing(row, year, week, team_name, "PASSING")
+                            self.insert_passing(row, year, week, team_name, "PASSING", league)
                         elif info == "Passing_Depth":
-                            self.insert_passing(row, year, week, team_name, "PASSING_DEPTH")
+                            self.insert_passing(row, year, week, team_name, "PASSING_DEPTH", league)
                         elif info == "Passing_Pressure":
-                            self.insert_passing(row, year, week, team_name, "PASSING_PRESSURE")
+                            self.insert_passing(row, year, week, team_name, "PASSING_PRESSURE", league)
                         elif info == "Receiving":
                             self.insert_receiving(row, year, week, team_name, "RECEIVING")
                         elif info == "Receiving_Depth":
@@ -359,140 +365,108 @@ class DB():
         return result
 
 
+class GetStats():
+
+    def __init__(self, db: DB) -> None:
+        self.db = db
+        self.PLAYER_PASSING_HEADERS = ["Player", "Year", "GP", "Snaps", "DB", "Cmp", "Aim", "Att", "Yds", "TD", "Int", "1D", "BTT", "TWP", "DRP", "Bat", "Hat", "TA", "Spk", "Sk", "Scrm", "Pen", "Grade", "FP", "SPRS"]
+    
+
+
+    def _calculate_grade(self, results: list[tuple]) -> dict[str, dict[str, int | float]]:
+        results_dict = {}
+        for result in results:
+            key = f"{result[0]}_{result[1]}"
+            if key not in results_dict:
+                results_dict[key] = {"att": result[2], "grade": result[3]}
+                continue
+
+            new_total = results_dict[key]["att"] + result[2]
+            old_grade_pct = (results_dict[key]["att"] / new_total) * results_dict[key]["grade"]
+            new_grade_pct = (result[2] / new_total) * result[3]
+
+            results_dict[key]["att"] = new_total
+            results_dict[key]["grade"] = old_grade_pct + new_grade_pct
+        
+        return results_dict
+    
+
+
+    def _calculate_fantasy_points(self, result: list, stat: str) -> int:
+        fp = 0
+        match stat:
+            case "passing":
+                fp += result[9] * 0.05 # yds
+                fp += result[10] * 6   # td
+                fp -= result[11] * 6  # int
+                fp += result[12] * 0.5 # 1d
+                fp += result[13] * 3   # btt
+                fp -= result[14] * 3   # twp
+                fp -= result[20] * 1.5 # sk
+                fp -= result[22] * 3   # pen
+        return fp
+    
+
+
+    def calculate_sprs(self, att: int, grade: float, fp: float) -> float:
+        return round((fp / att) * 0.45 + grade * 0.55, 3)
+
+
+
+    def _print_pretty_table(self, headers: list[str], results: list[list], sort_by: str = None, limit: int = None) -> None:
+        table = PrettyTable()
+        table.field_names = headers
+
+        if sort_by is not None and sort_by not in headers:
+            raise ValueError(f"Sort by column '{sort_by}' not found in headers, Please choose from: {headers}")
+
+        if sort_by is not None:
+            results.sort(key=lambda x: x[headers.index(sort_by)], reverse=True)
+
+        if limit is not None:
+            results = results[:limit]
+
+        table.add_rows(results)
+        print(table)
+
+
+
+    def players_season_passing(self, start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, pos: list[str]) -> list[tuple]:
+        sum_query = get_players_passing(start_week, end_week, start_year, end_year, start_type, pos)
+        grade_query = get_passing_grades(start_week, end_week, start_year, end_year, start_type, pos)
+        
+        grade_results = self.db.call_query(grade_query)
+        calculated_grades = self._calculate_grade(grade_results)
+
+        sum_results = self.db.call_query(sum_query)
+
+        max_att = max(result[5] for result in sum_results)
+
+        final_results = []
+        for result in sum_results:
+
+            if not result[5]  >= max_att * 0.25:
+                continue
+
+            key = f"{result[1]}_{result[2]}"
+            result = list(result)
+
+            result.append(round(calculated_grades[key]["grade"], 1))
+            result.append(round(self._calculate_fantasy_points(result, "passing"), 2))
+            result.append(round(self.calculate_sprs(result[5], result[-2], result[-1]), 3))
+            result.pop(1)
+            final_results.append(result)
+        
+        self._print_pretty_table(self.PLAYER_PASSING_HEADERS, final_results, "SPRS")
+
+        return final_results
+
+
 
 if __name__ == "__main__":
     db = DB()
-    TABLE = "PASSING"
-    year = 2014
+    stats = GetStats(db)
+    year = 2018
     start_year = 2006
     end_year = 2024
-    start_week = 1
-    end_week = 33
-    query = f"""
-        SELECT {TABLE}.* 
-        FROM {TABLE}
-        JOIN PLAYERS ON {TABLE}.Player_ID = PLAYERS.Player_ID
-        JOIN GAME_DATA ON {TABLE}.Game_ID = GAME_DATA.Game_ID
-        WHERE PLAYERS.Player_Pos = "QB" AND {TABLE}.Type = "passing"
-        AND GAME_DATA.Week >= ? AND GAME_DATA.Week <= ?
-        AND {TABLE}.Year >= ? AND {TABLE}.Year <= ?
-    """
-    db.cursor.execute(query, (start_week, end_week, start_year, end_year))
-    results = db.cursor.fetchall()
-    
-    fun = {}
-    
-    for result in results:
-        result = list(result)
-        key = f"{result[0]}_{result[4]}"
-
-        if key not in fun:
-            fun[key] = []
-        
-        if len(fun[key]) == 0:
-            fun[key] = result[5:]
-            fun[key].insert(0, 1)
-            continue
-        
-        index = 11 - 4
-        total_db = result[11] + fun[key][index]
-        fun_grade_pct = (fun[key][index] / total_db) * fun[key][-1]
-        result_grade_pct = (result[11] / total_db) * result[-1]
-        new_grade = fun_grade_pct + result_grade_pct
-        
-        length = len(result)
-        fun[key][0] += 1
-
-        for i in range(5, length):
-            if i == length - 1:
-                fun[key][-1] = new_grade
-                continue
-            
-            fun[key][i - 4] += result[i]
-        
-    # adding score
-    max_db = 0
-    indexs = {4: -1, 5: 3, 9: 0.25, 10: -0.25, 11: -6, 18: 6, 19: -3, 20: 0.05}
-    for player, stats in fun.items():
-        max_db = max(max_db, stats[7])
-        total_score = 0
-        for index, score in indexs.items():
-            total_score += stats[index] * score
-        
-        stats.append(total_score)
-        stats.append((stats[-2] * 0.65) + ((stats[-1] / stats[0]) * 0.35))
-
-    # sorting
-    fun = dict(sorted(fun.items(), key=lambda x: x[1][-1], reverse=True))
-
-    order = {"gp": 0, "db": 7, "cmp": 6, "aim": 1, "att": 2, "yds": 20, "td": 18, "int": 11, "1d": 9, "btt": 5, "twp": 19, "drp": 8, "bat": 4, "hat": 10, "ta": 17, "sk": 14, "pass": 21}
-    # printing
-    table = PrettyTable()
-    table.field_names = ["Rank", "Name", "Year", "GP", "DB", "CMP", "AIM", "ATT", "YDS", "TD", "INT", "1D", "BTT", "TW", "DRP", "BAT", "HAT", "TA", "SK", "PASS", "FP", "SPRS"]
-    
-    total = 1_000_000
-    rank = 1
-    for player, stats in fun.items():
-        if not stats[7] > max_db * 0.25:
-            continue
-
-        total -= 1
-        if total == 0:
-            break
-        
-        display = []
-        for i in order:
-            display.append(stats[order[i]])
-
-        display.append(stats[-2])
-        display.append(stats[-1])
-
-        query = "SELECT Player_Name FROM PLAYERS WHERE Player_ID = ?"
-        split = player.split("_")
-        player_id = split[0]
-        year = split[1] 
-        db.cursor.execute(query, (player_id,))
-        player_name = db.cursor.fetchone()[0]
-        
-        # Format float values to have 2 decimal places
-        formatted_display = []
-        for value in display:
-            if isinstance(value, float):
-                formatted_display.append(f"{value:.2f}")
-            else:
-                formatted_display.append(value)
-        
-        # Add row to the table with rank
-        table.add_row([rank, player_name, year] + formatted_display)
-        rank += 1
-    
-    # Print the table
-    table.align = "r"  # Right align all columns
-    table.align["Name"] = "l"  # Left align Name column
-    table.align["Rank"] = "r"  # Right align Rank column
-    table.min_width["Rank"] = 4  # Set minimum width for rank column
-    table.sortby = "SPRS"  # Sort by SPRS column
-    table.reversesort = True  # Sort in descending order
-    print(table)
-
-
-
-
-
-
-
-
-
-
-
-    # start_year = 2006
-    # end_year = 2024
-    # db.delete_table_values("PASSING")
-    # db.delete_table_values("RECEIVING")
-    # print("Cleared Tables")
-    # start_time = time.time()
-    # db.insert_values(start_year, end_year + 1)        
-    # end_time = time.time()
-    # print(f"The query time took {end_time - start_time}")
-    
-    db.kill()
+    passing_stats = stats.players_season_passing(1, 33, start_year, end_year, "passing", ["QB"])
