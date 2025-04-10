@@ -4,7 +4,8 @@ import sqlite3
 
 from constants import *
 from prettytable import PrettyTable
-from queries import get_players_passing, get_passing_grades
+from queries import get_players_passing, get_passing_grades, generate_table
+from create_base_tables import create_base_tables
 
 
 class DB():
@@ -28,6 +29,9 @@ class DB():
         ]
         self.conn = sqlite3.connect("db/football.db")
         self.cursor = self.conn.cursor()
+        
+        # Create base tables first
+        create_base_tables()
         
         # Add SQLite optimizations for bulk operations
         self.cursor.execute("PRAGMA synchronous = OFF")
@@ -465,8 +469,7 @@ class GetStats():
 
 if __name__ == "__main__":
     db = DB()
-    stats = GetStats(db)
-    year = 2018
-    start_year = 2006
-    end_year = 2024
-    passing_stats = stats.players_season_passing(1, 33, start_year, end_year, "passing", ["QB"])
+    query = generate_table("passing")
+    db.create_table(query)
+    db.kill()
+    

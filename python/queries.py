@@ -1,3 +1,71 @@
+START = """
+Player_ID INT (FOREIGN_KEY),
+GAME_ID INT (FOREIGN_KEY),
+TEAM_ID INT (FOREIGN_KEY),
+YEAR INT ,
+TYPE VARCHAR(64),
+"""
+END = """PRIMARY KEY (Player_ID, GAME_ID, TEAM_ID, YEAR, TYPE)"""
+
+
+
+
+PASSING = f"""
+    CREATE TABLE PASSING (
+    {START}
+    aimed_passes INT,
+    attempts INT,
+    avg_depth_of_target INT,
+    bats INT,
+    big_time_throws INT,
+    completions INT,
+    dropbacks INT,
+    drops INT,
+    first_downs INT,
+    hit_as_threw INT,
+    interceptions INT,
+    penalties INT,
+    sacks INT,
+    scrambles INT,
+    spikes INT,
+    touchdowns INT,
+    turnovers INT,
+    turnover_worthy_plays INT,
+    yards INT,
+    grade_pass INT,
+    {END}
+)
+"""
+
+
+
+RECEIVING = f"""
+    CREATE TABLE RECEIVING IF NOT EXISTS (
+    {START}
+    avoided_tackles INT,
+    contested_receptions INT,
+    contested_targets INT,
+    drops INT,
+    first_downs INT,
+    fumbles INT,
+    inline_snaps INT,
+    interceptions INT,
+    penalties INT,
+    receptions INT,
+    routes INT,
+    slot_snaps INT,
+    touchdowns INT,
+    wide_snaps INT,
+    yards INT,
+    yards_after_catch INT,
+    grades_hands_drop INT,
+    grades_pass_route INT
+    {END}
+)
+"""
+
+
+
 PASSING_SELECT = """
     SELECT
         PLAYERS.Player_Name,
@@ -25,6 +93,19 @@ PASSING_SELECT = """
         SUM(PASSING.penalties) as pen
     FROM PASSING
 """
+
+
+
+MAP = {
+    'passing': PASSING,
+    'receiving': RECEIVING,
+}
+
+
+
+def generate_table(table_type: str) -> str:
+    return MAP[table_type]
+
 
 
 def get_players_passing(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, pos: list[str]) -> str:
