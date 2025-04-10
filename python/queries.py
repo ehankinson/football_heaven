@@ -1,17 +1,53 @@
 START = """
-Player_ID INT (FOREIGN_KEY),
-GAME_ID INT (FOREIGN_KEY),
-TEAM_ID INT (FOREIGN_KEY),
-YEAR INT ,
-TYPE VARCHAR(64),
+    Player_ID INT,
+    GAME_ID INT,
+    TEAM_ID INT,
+    YEAR INT,
+    LEAGUE VARCHAR(8),
+    TYPE VARCHAR(64),
 """
-END = """PRIMARY KEY (Player_ID, GAME_ID, TEAM_ID, YEAR, TYPE)"""
+END = """
+FOREIGN KEY (Player_ID) REFERENCES PLAYERS(Player_ID),
+FOREIGN KEY (GAME_ID, TEAM_ID) REFERENCES GAME_DATA(Game_ID, Team_ID)
+PRIMARY KEY (Player_ID, GAME_ID, TEAM_ID, YEAR, LEAGUE, TYPE)"""
 
+
+
+PLAYERS = """
+    CREATE TABLE PLAYERS (
+        Player_ID INT PRIMARY KEY,
+        Player_Name VARCHAR(255),
+        Player_Pos VARCHAR(64)
+    )
+"""
+
+
+
+TEAMS = """
+    CREATE TABLE TEAMS (
+        TEAM_ID INT PRIMARY KEY,
+        Team_Name VARCHAR(255)
+    )
+"""
+
+
+
+GAME_DATA = """
+    CREATE TABLE GAME_DATA (
+        GAME_ID INT PRIMARY KEY,
+        Team_ID INT,
+        Year INT,
+        Week INT,
+        Opponent_ID INT,
+        FOREIGN KEY (Team_ID) REFERENCES TEAMS(TEAM_ID),
+        FOREIGN KEY (Opponent_ID) REFERENCES TEAMS(TEAM_ID)
+    )
+"""
 
 
 
 PASSING = f"""
-    CREATE TABLE PASSING (
+    CREATE TABLE IF NOT EXISTS PASSING (
     {START}
     aimed_passes INT,
     attempts INT,
@@ -24,12 +60,13 @@ PASSING = f"""
     first_downs INT,
     hit_as_threw INT,
     interceptions INT,
+    passing_snaps INT,
     penalties INT,
     sacks INT,
     scrambles INT,
     spikes INT,
+    thrown_aways INT,
     touchdowns INT,
-    turnovers INT,
     turnover_worthy_plays INT,
     yards INT,
     grade_pass INT,
@@ -37,13 +74,11 @@ PASSING = f"""
 )
 """
 
-
-
 RECEIVING = f"""
-    CREATE TABLE RECEIVING IF NOT EXISTS (
+    CREATE TABLE IF NOT EXISTS RECEIVING (
     {START}
     avoided_tackles INT,
-    contested_receptions INT,
+    contested_reception INT,
     contested_targets INT,
     drops INT,
     first_downs INT,
@@ -54,17 +89,16 @@ RECEIVING = f"""
     receptions INT,
     routes INT,
     slot_snaps INT,
+    targets INT,
     touchdowns INT,
     wide_snaps INT,
     yards INT,
     yards_after_catch INT,
     grades_hands_drop INT,
-    grades_pass_route INT
+    grades_pass_route INT,
     {END}
 )
 """
-
-
 
 PASSING_SELECT = """
     SELECT
@@ -99,6 +133,9 @@ PASSING_SELECT = """
 MAP = {
     'passing': PASSING,
     'receiving': RECEIVING,
+    'players': PLAYERS,
+    'teams': TEAMS,
+    'game_data': GAME_DATA,
 }
 
 
@@ -137,4 +174,5 @@ def get_passing_grades(start_week: int, end_week: int, start_year: int, end_year
         AND PASSING.Type = "{start_type}"
         AND PLAYERS.Player_Pos IN ({', '.join(f'"{p}"' for p in pos)})
     """
+
 

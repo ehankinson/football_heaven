@@ -5,39 +5,43 @@ import sqlite3
 from constants import *
 from prettytable import PrettyTable
 from queries import get_players_passing, get_passing_grades, generate_table
-from create_base_tables import create_base_tables
 
+MAP = [
+    'passing',
+    'receiving',
+    'players',
+    'teams',
+    'game_data',
+]
 
 class DB():
     
     def __init__(self) -> None:
-        self.START_FILE = "csv/PFF_NCAA_{info}_{year}.csv"
+        self.START_FILE = "csv/PFF_{info}_{year}.csv"
+        self.cache = 100_000
         self.INFO = [
             "Passing",
             "Passing_Depth",
             "Passing_Pressure",
-            # "Receiving",
-            # "Receiving_Depth",
-            # "Receiving_Scheme",
-            # # "Rushing",
-            # # "Blocking_Pass",
-            # # "Blocking_Rush",
-            # # "Defense_Coverage",
-            # # "Defense_Coverage_Scheme",
-            # # "Defense_Pass_Rush",
-            # # "Defense_Run_Defense"
+            "Receiving",
+            "Receiving_Depth",
+            "Receiving_Scheme",
+            # "Rushing",
+            # "Blocking_Pass",
+            # "Blocking_Rush",
+            # "Defense_Coverage",
+            # "Defense_Coverage_Scheme",
+            # "Defense_Pass_Rush",
+            # "Defense_Run_Defense"
         ]
         self.conn = sqlite3.connect("db/football.db")
         self.cursor = self.conn.cursor()
-        
-        # Create base tables first
-        create_base_tables()
         
         # Add SQLite optimizations for bulk operations
         self.cursor.execute("PRAGMA synchronous = OFF")
         self.cursor.execute("PRAGMA journal_mode = MEMORY")
         self.cursor.execute("PRAGMA temp_store = MEMORY")
-        self.cursor.execute("PRAGMA cache_size = 10000")
+        self.cursor.execute(f"PRAGMA cache_size = {self.cache}")
     
 
 
@@ -110,12 +114,12 @@ class DB():
 
     
 
-    def insert_game(self, game_id: int, team_id: int, year: int, week: int, opponent_id: int, location: str) -> None:
+    def insert_game(self, game_id: int, team_id: int, year: int, week: int, opponent_id: int) -> None:
         query = """
-            INSERT OR IGNORE INTO GAME_DATA (Game_ID, Team_ID, Year, Week, Opponent_ID, Location)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT OR IGNORE INTO GAME_DATA (Game_ID, Team_ID, Year, Week, Opponent_ID)
+            VALUES (?, ?, ?, ?, ?)
         """
-        self.cursor.execute(query, (game_id, team_id, year, week, opponent_id, location))
+        self.cursor.execute(query, (game_id, team_id, year, week, opponent_id))
         self.conn.commit()
     
 
@@ -138,6 +142,10 @@ class DB():
 
                 stats.append(float(row[val]))
             else:
+                if val is None:
+                    stats.append(0)
+                    continue
+
                 try:
                     number = int(row[val])
                 except:
@@ -145,11 +153,12 @@ class DB():
                         number = 0
                     else:
                         number = int(float(row[val]))
+
                 stats.append(number)
 
         query = """
             INSERT INTO PASSING (
-                Player_ID, Game_ID, Team_ID, Type, Year, league, aimed_passes, attempts, avg_depth_of_target,
+                Player_ID, Game_ID, Team_ID, TYPE, YEAR, LEAGUE, aimed_passes, attempts, avg_depth_of_target,
                 bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, 
                 interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, 
                 touchdowns, turnover_worthy_plays, yards, grade_pass
@@ -160,8 +169,8 @@ class DB():
     
 
 
-    def _add_into_receiving(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str):
-        stats = [int(row[2]), game_id, team_id, _type, year]
+    def _add_into_receiving(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str, league: str):
+        stats = [int(row[2]), game_id, team_id, _type, year, league]
 
         for key, val in values.items():
 
@@ -192,12 +201,12 @@ class DB():
 
         query = """
             INSERT INTO RECEIVING (
-                Player_ID, Game_ID, Team_ID, Type, Year, avoided_tackles, contested_reception,
+                Player_ID, Game_ID, Team_ID, Type, Year, League, avoided_tackles, contested_reception,
                 contested_targets, drops, first_downs, fumbles, inline_snaps, interceptions,
                 penalties, receptions, routes, slot_snaps, targets, touchdowns, wide_snaps,
                 yards, yards_after_catch, grades_hands_drop, grades_pass_route
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         self.cursor.execute(query, stats)
 
@@ -223,7 +232,7 @@ class DB():
     
 
 
-    def insert_receiving(self, row: list, year: int, week: int, team: str, receiving: str) -> None:
+    def insert_receiving(self, row: list, year: int, week: int, team: str, receiving: str, league: str) -> None:
         team_id = self.get_team_id(team)
         try:
             game_id = self.get_game_id(year, week, team_id)
@@ -232,14 +241,15 @@ class DB():
             return
 
         if receiving == "RECEIVING":
-            self._add_into_receiving(row, RECEIVING, game_id, team_id, year, "receiving")
+            self._add_into_receiving(row, RECEIVING, game_id, team_id, year, "receiving", league)
         elif receiving == "RECEIVING_DEPTH":
             for depth in RECEIVING_DEPTH:
                 for area in RECEIVING_DEPTH[depth]:
-                    self._add_into_receiving(row, RECEIVING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}")
+                    self._add_into_receiving(row, RECEIVING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}", league)
         else:  # RECEIVING_SCHEME
             for scheme in RECEIVING_SCHEME:
-                self._add_into_receiving(row, RECEIVING_SCHEME[scheme], game_id, team_id, year, scheme.lower())
+                
+                self._add_into_receiving(row, RECEIVING_SCHEME[scheme], game_id, team_id, year, scheme.lower(), league)
     
 
 
@@ -256,13 +266,11 @@ class DB():
                 week = int(row[2])
                 opp_id = self.get_team_id(row[3])
 
-                location = row[4]
-                self.insert_game(i + 1, team_id, year, week, opp_id, location)
+                self.insert_game(i + 1, team_id, year, week, opp_id)
 
 
 
     def insert_values(self, start_year: int, end_year: int, league: str):
-        batch_size = 1_000  # Adjust based on your data size
         records_processed = 0
         
         for year in range(start_year, end_year):
@@ -298,16 +306,16 @@ class DB():
                         elif info == "Passing_Pressure":
                             self.insert_passing(row, year, week, team_name, "PASSING_PRESSURE", league)
                         elif info == "Receiving":
-                            self.insert_receiving(row, year, week, team_name, "RECEIVING")
+                            self.insert_receiving(row, year, week, team_name, "RECEIVING", league)
                         elif info == "Receiving_Depth":
-                            self.insert_receiving(row, year, week, team_name, "RECEIVING_DEPTH")
+                            self.insert_receiving(row, year, week, team_name, "RECEIVING_DEPTH", league)
                         elif info == "Receiving_Scheme":
-                            self.insert_receiving(row, year, week, team_name, "RECEIVING_SCHEME")
+                            self.insert_receiving(row, year, week, team_name, "RECEIVING_SCHEME", league)
                         
                         records_processed += 1
                         
                         # Commit in batches
-                        if records_processed % batch_size == 0:
+                        if records_processed % self.cache == 0:
                             self.conn.commit()
                             self.conn.execute("BEGIN TRANSACTION")
                     
@@ -469,7 +477,15 @@ class GetStats():
 
 if __name__ == "__main__":
     db = DB()
-    query = generate_table("passing")
-    db.create_table(query)
+    db.drop_table("PASSING")
+    db.drop_table("RECEIVING")
+
+    db.create_table(generate_table("passing"))
+    db.create_table(generate_table("receiving"))
+
+    start_time = time.time()
+    db.insert_values(2006, 2024, "NFL")
+    end_time = time.time()
+    print(f"The query time took {end_time - start_time:.2f} seconds")
     db.kill()
     
