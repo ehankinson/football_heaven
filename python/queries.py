@@ -100,63 +100,80 @@ RECEIVING = f"""
 )
 """
 
-PASSING_SELECT = """
+
+PASS_SUM = """
+    COUNT(DISTINCT PASSING.Game_ID) as gp,
+    SUM(PASSING.passing_snaps) as snaps,
+    SUM(PASSING.dropbacks) as db,
+    SUM(PASSING.completions) as cmp,
+    SUM(PASSING.aimed_passes) as aim,
+    SUM(PASSING.attempts) as att,
+    SUM(PASSING.yards) as yds,
+    SUM(PASSING.touchdowns) as td,
+    SUM(PASSING.interceptions) as int,
+    SUM(PASSING.first_downs) as "1d",
+    SUM(PASSING.big_time_throws) as btt,
+    SUM(PASSING.turnover_worthy_plays) as twp,
+    SUM(PASSING.drops) as drp,
+    SUM(PASSING.bats) as bat,
+    SUM(PASSING.hit_as_threw) as hat,
+    SUM(PASSING.thrown_aways) as ta,
+    SUM(PASSING.spikes) as spk,
+    SUM(PASSING.sacks) as sk,
+    SUM(PASSING.scrambles) as scrm,
+    SUM(PASSING.penalties) as pen
+"""
+
+PASSING_SELECT = f"""
     SELECT
         PLAYERS.Player_Name,
         PLAYERS.Player_ID,
         PASSING.Year,
-        COUNT(DISTINCT PASSING.Game_ID) as gp,
-        SUM(PASSING.passing_snaps) as snaps,
-        SUM(PASSING.dropbacks) as db,
-        SUM(PASSING.completions) as cmp,
-        SUM(PASSING.aimed_passes) as aim,
-        SUM(PASSING.attempts) as att,
-        SUM(PASSING.yards) as yds,
-        SUM(PASSING.touchdowns) as td,
-        SUM(PASSING.interceptions) as int,
-        SUM(PASSING.first_downs) as "1d",
-        SUM(PASSING.big_time_throws) as btt,
-        SUM(PASSING.turnover_worthy_plays) as twp,
-        SUM(PASSING.drops) as drp,
-        SUM(PASSING.bats) as bat,
-        SUM(PASSING.hit_as_threw) as hat,
-        SUM(PASSING.thrown_aways) as ta,
-        SUM(PASSING.spikes) as spk,
-        SUM(PASSING.sacks) as sk,
-        SUM(PASSING.scrambles) as scrm,
-        SUM(PASSING.penalties) as pen
+        {PASS_SUM}
     FROM PASSING
 """
 
 
 
-TEAM_PASSING_SELECT = """
+TEAM_PASSING_SELECT = f"""
     SELECT
         TEAMS.Team_Name,
         TEAMS.Team_ID,
         PASSING.Year,
-        COUNT(DISTINCT PASSING.Game_ID) as gp,
-        SUM(PASSING.passing_snaps) as snaps,
-        SUM(PASSING.dropbacks) as db,
-        SUM(PASSING.completions) as cmp,
-        SUM(PASSING.aimed_passes) as aim,
-        SUM(PASSING.attempts) as att,
-        SUM(PASSING.yards) as yds,
-        SUM(PASSING.touchdowns) as td,
-        SUM(PASSING.interceptions) as int,
-        SUM(PASSING.first_downs) as "1d",
-        SUM(PASSING.big_time_throws) as btt,
-        SUM(PASSING.turnover_worthy_plays) as twp,
-        SUM(PASSING.drops) as drp,
-        SUM(PASSING.bats) as bat,
-        SUM(PASSING.hit_as_threw) as hat,
-        SUM(PASSING.thrown_aways) as ta,
-        SUM(PASSING.spikes) as spk,
-        SUM(PASSING.sacks) as sk,
-        SUM(PASSING.scrambles) as scrm,
-        SUM(PASSING.penalties) as pen
+        {PASS_SUM}
     FROM PASSING
 """
+
+
+
+RECEIVING_SELECT = f"""
+    SELECT
+        PLAYERS.Player_Name,
+        PLAYERS.Player_ID,
+        RECEIVING.Year,
+        TEAMS.Team_Name,
+        PLAYERS.Player_Pos,
+        COUNT(DISTINCT RECEIVING.Game_ID) as gp,
+        SUM(RECEIVING.wide_snaps) as ws,
+        SUM(RECEIVING.slot_snaps) as slt,
+        SUM(RECEIVING.inline_snaps) as ins,
+        SUM(RECEIVING.routes) as rts,
+        SUM(RECEIVING.targets) as tgt,
+        SUM(RECEIVING.receptions) as rec,
+        SUM(RECEIVING.yards) as yds,
+        SUM(RECEIVING.touchdowns) as td,
+        SUM(RECEIVING.interceptions) as int,
+        SUM(RECEIVING.first_downs) as "1d",
+        SUM(RECEIVING.drops) as drp,
+        SUM(RECEIVING.yards_after_catch) as yac,
+        SUM(RECEIVING.avoided_tackles) as at,
+        SUM(RECEIVING.fumbles) as fum,
+        SUM(RECEIVING.contested_targets) as ct,
+        SUM(RECEIVING.contested_reception) as cr,
+        SUM(RECEIVING.penalties) as pen
+    FROM RECEIVING
+"""
+
 
 
 
@@ -200,6 +217,22 @@ def get_team_passing(start_week: int, end_week: int, start_year: int, end_year: 
         AND PASSING.Type = "{start_type}"
         AND PASSING.League = "{league}"
         GROUP BY PASSING.Team_ID, PASSING.Year
+    """
+
+
+
+def get_players_receiving(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, pos: list[str]) -> str:
+    return f"""
+        {RECEIVING_SELECT}
+        JOIN GAME_DATA on RECEIVING.Game_ID = GAME_DATA.Game_ID
+        JOIN TEAMS on RECEIVING.Team_ID = TEAMS.Team_ID
+        JOIN PLAYERS on RECEIVING.Player_ID = PLAYERS.Player_ID
+        WHERE Game_DATA.Week BETWEEN {start_week} and {end_week}
+        AND RECEIVING.Year BETWEEN {start_year} and {end_year}
+        AND PLAYERS.Player_Pos IN ({', '.join(f'"{p}"' for p in pos)})
+        AND RECEIVING.Type = "{start_type}"
+        AND RECEIVING.League = "{league}"
+        GROUP BY RECEIVING.Player_ID, RECEIVING.Year
     """
 
 
