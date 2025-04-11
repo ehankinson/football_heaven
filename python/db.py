@@ -4,7 +4,7 @@ import sqlite3
 
 from constants import *
 from prettytable import PrettyTable
-from queries import get_players_passing, get_passing_grades, generate_table
+from queries import get_players_passing, get_passing_grades, get_team_passing
 
 MAP = [
     'passing',
@@ -381,21 +381,26 @@ class GetStats():
 
     def __init__(self, db: DB) -> None:
         self.db = db
-        self.PLAYER_PASSING_HEADERS = ["Player", "Year", "GP", "Snaps", "DB", "Cmp", "Aim", "Att", "Yds", "TD", "Int", "1D", "BTT", "TWP", "DRP", "Bat", "Hat", "TA", "Spk", "Sk", "Scrm", "Pen", "Grade", "FP", "SPRS"]
+        self.PASSING_HEADERS = ["Pick", "Year", "GP", "Snaps", "DB", "Cmp", "Aim", "Att", "Yds", "TD", "Int", "1D", "BTT", "TWP", "DRP", "Bat", "Hat", "TA", "Spk", "Sk", "Scrm", "Pen", "Grade", "FP", "SPRS"]
     
 
 
-    def _calculate_grade(self, results: list[tuple]) -> dict[str, dict[str, int | float]]:
+    def _calculate_grade(self, results: list[tuple], team: bool = False) -> dict[str, dict[str, int | float]]:
         results_dict = {}
+        key_index = [1, 2] if team else [0, 2]
+
         for result in results:
-            key = f"{result[0]}_{result[1]}"
+            key = f"{result[key_index[0]]}_{result[key_index[1]]}"
             if key not in results_dict:
-                results_dict[key] = {"att": result[2], "grade": result[3]}
+                results_dict[key] = {"att": result[-2], "grade": result[-1]}
+                continue
+            
+            new_total = results_dict[key]["att"] + result[-2]
+            if new_total == 0:
                 continue
 
-            new_total = results_dict[key]["att"] + result[2]
             old_grade_pct = (results_dict[key]["att"] / new_total) * results_dict[key]["grade"]
-            new_grade_pct = (result[2] / new_total) * result[3]
+            new_grade_pct = (result[-2] / new_total) * result[-1]
 
             results_dict[key]["att"] = new_total
             results_dict[key]["grade"] = old_grade_pct + new_grade_pct
@@ -443,9 +448,9 @@ class GetStats():
 
 
 
-    def players_season_passing(self, start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, pos: list[str]) -> list[tuple]:
-        sum_query = get_players_passing(start_week, end_week, start_year, end_year, start_type, pos)
-        grade_query = get_passing_grades(start_week, end_week, start_year, end_year, start_type, pos)
+    def players_season_passing(self, start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, pos: list[str], limit: int) -> list[tuple]:
+        sum_query = get_players_passing(start_week, end_week, start_year, end_year, start_type, league, pos)
+        grade_query = get_passing_grades(start_week, end_week, start_year, end_year, start_type, league, pos)
         
         grade_results = self.db.call_query(grade_query)
         calculated_grades = self._calculate_grade(grade_results)
@@ -468,24 +473,58 @@ class GetStats():
             result.append(round(self.calculate_sprs(result[5], result[-2], result[-1]), 3))
             result.pop(1)
             final_results.append(result)
+
+        self.PASSING_HEADERS[0] = "Player"
+        self._print_pretty_table(self.PASSING_HEADERS, final_results, "SPRS", limit=limit)
+
+        return final_results
+    
+
+
+    def team_season_passing(self, start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, pos: list[str]) -> list[tuple]:
+        sum_query = get_team_passing(start_week, end_week, start_year, end_year, start_type, league)
+        grade_query = get_passing_grades(start_week, end_week, start_year, end_year, start_type, league, pos)
         
-        self._print_pretty_table(self.PLAYER_PASSING_HEADERS, final_results, "SPRS")
+        grade_results = self.db.call_query(grade_query)
+        calculated_grades = self._calculate_grade(grade_results, team=True)
+
+        sum_results = self.db.call_query(sum_query)
+
+        max_att = max(result[5] for result in sum_results)
+
+        final_results = []
+        for result in sum_results:
+
+            if not result[5]  >= max_att * 0.25:
+                continue
+
+            key = f"{result[1]}_{result[2]}"
+            result = list(result)
+
+            result.append(round(calculated_grades[key]["grade"], 1))
+            result.append(round(self._calculate_fantasy_points(result, "passing"), 2))
+            result.append(round(self.calculate_sprs(result[5], result[-2], result[-1]), 3))
+            result.pop(1)
+            final_results.append(result)
+        
+        self.PASSING_HEADERS[0] = "Team"
+        self._print_pretty_table(self.PASSING_HEADERS, final_results, "SPRS", limit=limit)
 
         return final_results
 
 
-
 if __name__ == "__main__":
     db = DB()
-    db.drop_table("PASSING")
-    db.drop_table("RECEIVING")
+    start_week = 1
+    end_week = 18
+    sy = 2007
+    ey = 2007
+    start_type = "passing"
+    league = "NFL"
+    pos = ["QB"]
+    limit = 50
 
-    db.create_table(generate_table("passing"))
-    db.create_table(generate_table("receiving"))
+    stats = GetStats(db)
 
-    start_time = time.time()
-    db.insert_values(2006, 2024, "NFL")
-    end_time = time.time()
-    print(f"The query time took {end_time - start_time:.2f} seconds")
+    stats.team_season_passing(start_week, end_week, sy, ey, start_type, league, pos)
     db.kill()
-    
