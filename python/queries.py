@@ -102,7 +102,6 @@ RECEIVING = f"""
 
 
 PASS_SUM = """
-    COUNT(DISTINCT PASSING.Game_ID) as gp,
     SUM(PASSING.passing_snaps) as snaps,
     SUM(PASSING.dropbacks) as db,
     SUM(PASSING.completions) as cmp,
@@ -121,7 +120,8 @@ PASS_SUM = """
     SUM(PASSING.spikes) as spk,
     SUM(PASSING.sacks) as sk,
     SUM(PASSING.scrambles) as scrm,
-    SUM(PASSING.penalties) as pen
+    SUM(PASSING.penalties) as pen,
+    ROUND(SUM(PASSING.grade_pass * PASSING.dropbacks) / NULLIF(SUM(PASSING.dropbacks), 0), 1) as weighted_grade
 """
 
 PASSING_SELECT = f"""
@@ -129,10 +129,10 @@ PASSING_SELECT = f"""
         PLAYERS.Player_Name,
         PLAYERS.Player_ID,
         PASSING.Year,
+        TEAMS.Team_Name,
         {PASS_SUM}
     FROM PASSING
 """
-
 
 
 TEAM_PASSING_SELECT = f"""
@@ -176,7 +176,6 @@ RECEIVING_SELECT = f"""
 
 
 
-
 MAP = {
     'passing': PASSING,
     'receiving': RECEIVING,
@@ -197,6 +196,7 @@ def get_players_passing(start_week: int, end_week: int, start_year: int, end_yea
         {PASSING_SELECT}
         JOIN GAME_DATA on PASSING.Game_ID = GAME_DATA.Game_ID
         JOIN PLAYERS on PASSING.Player_ID = PLAYERS.Player_ID
+        JOIN TEAMS on PASSING.Team_ID = TEAMS.Team_ID
         WHERE Game_DATA.Week BETWEEN {start_week} and {end_week}
         AND PASSING.Year BETWEEN {start_year} and {end_year}
         AND PLAYERS.Player_Pos IN ({', '.join(f'"{p}"' for p in pos)})
@@ -256,3 +256,70 @@ def get_passing_grades(start_week: int, end_week: int, start_year: int, end_year
     """
 
 
+
+def get_receiving_grades(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, pos: list[str]) -> str:
+    return f"""
+        SELECT
+            RECEIVING.Player_ID,
+            RECEIVING.Team_ID,
+            RECEIVING.Year,
+            RECEIVING.routes,
+            RECEIVING.grades_hands_drop,
+            RECEIVING.grades_pass_route
+        FROM RECEIVING
+        JOIN GAME_DATA on RECEIVING.Game_ID = GAME_DATA.Game_ID
+        JOIN PLAYERS on RECEIVING.Player_ID = PLAYERS.Player_ID
+        WHERE RECEIVING.Year BETWEEN {start_year} and {end_year}
+        AND GAME_DATA.Week BETWEEN {start_week} and {end_week}
+        AND RECEIVING.Type = "{start_type}"
+        AND RECEIVING.League = "{league}"
+        AND PLAYERS.Player_Pos IN ({', '.join(f'"{p}"' for p in pos)})
+    """
+
+
+
+def get_passing_game(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, team: str, opp: bool = False) -> str:
+    string = []
+    string.append(f"SELECT TEAMS.Team_Name, TEAMS.Team_ID, PASSING.Year, GAME_DATA.Week, {PASS_SUM}")
+    string.append("FROM PASSING\n")
+    string.append("JOIN GAME_DATA on PASSING.Game_ID = GAME_DATA.Game_ID\n")
+    string.append("JOIN TEAMS on PASSING.Team_ID = TEAMS.Team_ID\n")
+    string.append(f"WHERE PASSING.Year BETWEEN {start_year} and {end_year}\n")
+    string.append(f"AND GAME_DATA.Week BETWEEN {start_week} and {end_week}\n")
+    string.append(f"AND PASSING.Type = '{start_type}'\n")
+    string.append(f"AND PASSING.League = '{league}'\n")
+    if opp:
+        string.append(f"AND GAME_DATA.Opponent_ID = (SELECT TEAM_ID FROM TEAMS WHERE Team_Name = '{team}')\n")
+    else:
+        string.append(f"AND TEAMS.Team_Name = '{team}'\n")
+    string.append("GROUP BY GAME_DATA.Game_ID, TEAMS.Team_ID, PASSING.Year")
+    return ''.join(string)
+
+
+
+def player_passing_game(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, team: str) -> str:
+    string = []
+    string.append(f"SELECT PLAYERS.Player_Name, PLAYERS.Player_ID, PASSING.Year, TEAMS.Team_Name, GAME_DATA.Week, {PASS_SUM}")
+    string.append("FROM PASSING\n")
+    string.append("JOIN GAME_DATA on PASSING.Game_ID = GAME_DATA.Game_ID\n")
+    string.append("JOIN TEAMS on PASSING.Team_ID = TEAMS.Team_ID\n")
+    string.append("JOIN PLAYERS on PASSING.Player_ID = PLAYERS.Player_ID\n")
+    string.append(f"WHERE PASSING.Year BETWEEN {start_year} and {end_year}\n")
+    string.append(f"AND GAME_DATA.Week BETWEEN {start_week} and {end_week}\n")
+    string.append(f"AND PASSING.Type = '{start_type}'\n")
+    string.append(f"AND PASSING.League = '{league}'\n")
+    string.append(f"AND TEAMS.Team_Name = '{team}'\n")
+    string.append("GROUP BY GAME_DATA.Game_ID, PLAYERS.Player_ID, PASSING.Year")
+    return ''.join(string)
+
+
+FUNCTIONS = [
+    generate_table,
+    get_players_passing,
+    get_team_passing,
+    get_players_receiving,
+    get_passing_grades,
+    get_receiving_grades,
+    get_passing_game,
+    player_passing_game
+]
