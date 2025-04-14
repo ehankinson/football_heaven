@@ -189,7 +189,7 @@ class GetStats():
 
 
     def season_passing_game(self, is_player: bool, args: list, side_of_ball: bool = False, print_table: bool = False):
-        start_week, end_week, start_year, end_year, start_type, league, pos, limit, team = args
+        start_week, end_week, start_year, end_year, start_type, league, pos, limit, team = args.values()
         query = player_passing_game(start_week, end_week, start_year, end_year, start_type, league, team) if is_player else get_passing_game(start_week, end_week, start_year, end_year, start_type, league, team, opp=side_of_ball)
         results = self.db.call_query(query)
         return results
