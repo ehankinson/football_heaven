@@ -1,8 +1,8 @@
 import time 
 
 from db import DB
-from prettytable import PrettyTable
 from queries import *
+from prettytable import PrettyTable
 
 class GetStats():
 
@@ -82,17 +82,17 @@ class GetStats():
                 fp -= result[base + 10] * 1.5 # sk
                 fp -= result[base + 11] * 3   # pen
             case "receiving":
-                fp += result[11] * 0.5 # rec
-                fp += result[13] * 6   # td
-                fp -= result[14] * 6   # int
-                fp += result[15] * 0.5 # 1d
-                fp -= result[16] * 3 # drp
-                fp += result[17] * 0.0875 # ybc
-                fp += result[18] * 0.1625 # yac
-                fp += result[19] * 2 # at
-                fp -= result[20] * 6 # fum
-                fp += result[22] * 0.5 # ct
-                # fp -= result[23] * 3 # pen
+                fp += result[11] * 0.5        # rec
+                fp += result[13] * 6          # td
+                fp -= result[14] * 6          # int
+                fp += result[15] * 0.5        # 1d
+                fp -= result[16] * 3          # drp
+                fp += result[17] * 0.0875     # ybc
+                fp += result[18] * 0.1625     # yac
+                fp += result[19] * 2          # at
+                fp -= result[20] * 6          # fum
+                fp += result[22] * 0.5        # ct
+                fp -= result[23] * 3          # pen
         return fp
     
 
@@ -102,7 +102,7 @@ class GetStats():
             case "passing":
                 return round((fp / gp) * 0.45 + grades[0] * 0.55, 3)
             case "receiving":
-                return round((fp / gp) * 0.45 + grades[0] * 0.4 + grades[1] * 0.1, 3)
+                return round((fp / gp) * 0.45 + grades[0] * 0.35 + grades[1] * 0.2, 3)
 
 
 
