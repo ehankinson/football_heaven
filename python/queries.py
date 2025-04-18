@@ -25,8 +25,9 @@ PLAYERS = """
 
 TEAMS = """
     CREATE TABLE TEAMS (
-        TEAM_ID INT PRIMARY KEY,
-        Team_Name VARCHAR(255)
+        TEAM_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+        Team_Name VARCHAR(255),
+        League VARCHAR(8)
     )
 """
 
@@ -34,11 +35,29 @@ TEAMS = """
 
 GAME_DATA = """
     CREATE TABLE GAME_DATA (
-        GAME_ID INT PRIMARY KEY,
+        GAME_ID INTEGER PRIMARY KEY AUTOINCREMENT,
         Team_ID INT,
         Year INT,
         Week INT,
         Opponent_ID INT,
+        Points_For INT,
+        Points_Against INT,
+        TD INT,
+        XPA INT,
+        XPM INT,
+        FGA INT,
+        FGM INT,
+        "2PA" INT,
+        "2PM" INT,
+        Sfty INT,
+        KRTD INT,
+        PRTD INT,
+        INTD INT,
+        FRTD INT,
+        OPP_KRTD INT,
+        OPP_PRTD INT,
+        OPP_INTD INT,
+        OPP_FRTD INT,
         FOREIGN KEY (Team_ID) REFERENCES TEAMS(TEAM_ID),
         FOREIGN KEY (Opponent_ID) REFERENCES TEAMS(TEAM_ID)
     )
