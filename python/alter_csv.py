@@ -61,9 +61,9 @@ def process_file(_file: str, start_year: int, end_year: int) -> None:
             writer.writerows(all_rows) 
 
 
-start_year = 2006
+start_year = 2014
 end_year = 2025
-_file = "csv/PFF_Passing_Pressure_{year}.csv"
+_file = "csv/PFF_NCAA_Passing_Pressure_{year}.csv"
 
 process_file(_file, start_year, end_year)
                 

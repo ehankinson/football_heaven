@@ -130,22 +130,31 @@ class GetStats():
         sum_query = get_players_passing(start_week, end_week, start_year, end_year, start_type, league, pos) if is_player else get_team_passing(start_week, end_week, start_year, end_year, start_type, league)
         sum_results = self.db.call_query(sum_query)
 
-        max_att = max(result[5] for result in sum_results)
+        headers = self.PASSING_HEADERS.copy()
+        if is_player:
+            headers[0] = "Player"
+        else:
+            headers[0] = "Team"
+            headers.pop(3)
+            headers.pop(2)
+
+        snaps = headers.index("Snaps")
+        start_fp = headers.index("Yds")
+
+        max_att = max(result[snaps] for result in sum_results)
 
         final_results = []
         for result in sum_results:
-            if not result[5] >= max_att * 0.25:
+            if not result[snaps] >= max_att * 0.25:
                 continue
 
             result = list(result)
 
-            result.append(round(self._calculate_fantasy_points(result, "passing", 10 if is_player else 9), 2))
-            result.append(round(self.calculate_sprs(result[5], [result[-2]], result[-1], "passing"), 3))
-            result.pop(1)
+            result.append(round(self._calculate_fantasy_points(result, "passing", start_fp), 2))
+            result.append(round(self.calculate_sprs(result[snaps], [result[-2]], result[-1], "passing"), 3))
             final_results.append(result)
 
-        self.PASSING_HEADERS[0] = "Player" if is_player else "Team"
-        self._print_pretty_table(self.PASSING_HEADERS, final_results, sort_by="SPRS", order="desc", limit=limit)
+        self._print_pretty_table(headers, final_results, sort_by="SPRS", order="desc", limit=limit)
 
         return final_results
 
@@ -198,23 +207,22 @@ class GetStats():
 if __name__ == "__main__":
     db = DB()
     team = "NO"
-    start_week = 1
-    end_week = 18
-    year = 2012
+    start_week = 29
+    end_week = 32
     sy = 2006
-    ey = 2006
+    ey = 2024
     start_type = "passing"
     league = "NFL"
-    pos = None
+    pos = ["QB"]
     limit = 50
 
     is_player = False
     opp = False
-    data = [start_week, end_week, sy, ey, start_type, league, pos, limit, team]
+    data = [start_week, end_week, sy, ey, start_type, league, pos, limit]
 
     stats = GetStats(db)
 
-    # stats.season_passing(is_player, data)
-    off = stats.season_passing_game(is_player, False, data, True)
-    defense = stats.season_passing_game(is_player, True, data)
+    stats.season_passing(is_player, data)
+    # off = stats.season_passing_game(is_player, False, data, True)
+    # defense = stats.season_passing_game(is_player, True, data)
     db.kill()

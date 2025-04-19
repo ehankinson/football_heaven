@@ -77,6 +77,7 @@ class MakeVersion():
             new_player_stats = self._convert_zero_one_pt(offense_stats, defense_stats, passing_stats)
             [val.insert(4, _type) for val in new_player_stats]
             final_results += new_player_stats
+            break
         
         for result in final_results:
             print(result)
@@ -94,9 +95,9 @@ if __name__ == "__main__":
     is_player = False
     data = {
         "start_week": 1,
-        "end_week": 1,
-        "start_year": 2006,
-        "end_year": 2006,
+        "end_week": 32,
+        "start_year": 2023,
+        "end_year": 2023,
         "type": None,
         "league": "NFL",
         "position": None,

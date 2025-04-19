@@ -1,8 +1,9 @@
+import os
 import csv
 import time
 import sqlite3
 
-from queries import GAME_DATA
+from queries import GAME_DATA, TEAMS, CREATE_PASSING, CREATE_PLAYERS
 from constants import *
 
 MAP = [
@@ -16,15 +17,15 @@ MAP = [
 class DB():
     
     def __init__(self) -> None:
-        self.START_FILE = "csv/PFF_{info}_{year}.csv"
+        self.START_FILE = "csv/PFF_{league}_{info}_{year}.csv"
         self.cache = 100_000
         self.INFO = [
             "Passing",
             "Passing_Depth",
             "Passing_Pressure",
-            "Receiving",
-            "Receiving_Depth",
-            "Receiving_Scheme",
+            # "Receiving",
+            # "Receiving_Depth",
+            # "Receiving_Scheme",
             # "Rushing",
             # "Blocking_Pass",
             # "Blocking_Rush",
@@ -76,13 +77,14 @@ class DB():
 
 
     def get_game_id(self, year: int, week: int, team_id: int) -> int:
-        self.cursor.execute("SELECT Game_ID FROM GAME_DATA WHERE Year = ? AND Week = ? and Team_ID = ?", (year, week, team_id))
-        return self.cursor.fetchone()[0]
+        self.cursor.execute("SELECT GAME_ID FROM GAME_DATA WHERE Year = ? AND Week = ? AND Team_ID = ?", (year, week, team_id))
+        result = self.cursor.fetchone()
+        return result[0] if result is not None else None
 
 
 
     def get_team_id(self, team: str) -> int:
-        self.cursor.execute("SELECT Team_ID FROM TEAMS WHERE Team_Name = ?", (team,))
+        self.cursor.execute("SELECT Team_ID FROM TEAMS WHERE Team_Abbr = ?", (team,))
         result = self.cursor.fetchone()
         return result[0] if result is not None else None
 
@@ -98,38 +100,66 @@ class DB():
     
 
 
-    def insert_team(self, team_name: str, league: str) -> None:
-        # Insert the new team only if it doesn't already exist
-        query = """
-            INSERT OR IGNORE INTO TEAMS (Team_Name, League) VALUES (?, ?)
-        """ 
-        self.cursor.execute(query, (team_name, league))
+    def insert_teams(self) -> None:
+        self.drop_table("TEAMS")
+        self.create_table(TEAMS)
+        with open("csv/teams.csv", "r") as c:
+            reader = csv.reader(c)
+            for row in reader:
+                if row[1] == "League":
+                    continue
+
+                team_abbr = row[0].strip()  # Remove regular spaces and special characters
+                league = row[1]
+                team_name = row[2].strip()
+                query = """
+                    INSERT OR IGNORE INTO TEAMS (Team_Abbr, League, Team_Name) VALUES (?, ?, ?)
+                """ 
+                self.cursor.execute(query, (team_abbr, league, team_name))
+
         self.conn.commit()
 
     
 
-    def insert_game(self, row: list, league: str) -> None:
-        row.pop(4)
-        team_id = self.get_team_id(row[1])
-        opp_id = self.get_team_id(row[4])
-        row[1] = team_id
-        row[4] = opp_id
-        
-        # Convert all available values to integers
-        row = [int(r) if r != '' else 0 for r in row]
+    def insert_games(self) -> None:
+        self.drop_table("GAME_DATA")
+        self.create_table(GAME_DATA)
 
-        if league == "NFL":
-            row += [0] * 4
-        
-        query = """
-            INSERT OR IGNORE INTO GAME_DATA (
-                Team_ID, Year, Week, Opponent_ID, Points_For, Points_Against,
-                TD, XPA, XPM, FGA, FGM, "2PA", "2PM", Sfty, 
-                KRTD, PRTD, INTD, FRTD, OPP_KRTD, OPP_PRTD, OPP_INTD, OPP_FRTD
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """
-        self.cursor.execute(query, row)
-        self.conn.commit()
+        thing = {"NFL": "csv/nfl_games.csv"} #, "NCAA": "csv/ncaa_games.csv"}
+        for league, fil in thing.items():
+            with open(fil, "r") as c:
+                reader = csv.reader(c)
+                for row in reader:
+                    if row[1] == "Team":
+                        continue
+                    
+                    if league == "NCAA":
+                        row.insert(14, row[14])
+
+                    row.pop(4)
+                    team_id = self.get_team_id(row[1].strip())
+                    opp_id = self.get_team_id(row[4].strip())
+                    row[1] = team_id
+                    row[4] = opp_id
+                    
+                    # Convert all available values to integers
+                    for i, r in enumerate(row):
+                        row[i] = int(r) if r not in {'', None} else 0
+
+                    if league == "NFL":
+                        row += [0] * 4
+
+                    row.pop(0)
+                    
+                    query = f"""
+                        INSERT OR IGNORE INTO GAME_DATA (
+                            Team_ID, Year, Week, Opponent_ID, Points_For, Points_Against, Diff,
+                            TD, XPA, XPM, FGA, FGM, "2PA", "2PM", Sfty, 
+                            KRTD, PRTD, INTD, FRTD, OPP_KRTD, OPP_PRTD, OPP_INTD, OPP_FRTD
+                        ) VALUES ({', '.join(['?'] * len(row))})
+                    """
+                    self.cursor.execute(query, row)
+                    self.conn.commit()
     
 
 
@@ -221,12 +251,9 @@ class DB():
 
 
 
-    def insert_passing(self, row: list, year: int, week: int, team: str, passing: str, league: str) -> None:
-        team_id = self.get_team_id(team)
-        try:
-            game_id = self.get_game_id(year, week, team_id)
-        except:
-            print(f"Game ID not found for {team} ({team_id}) in {year} week {week}")
+    def insert_passing(self, row: list, year: int, week: int, team_id: int, passing: str, league: str) -> None:
+        game_id = self.get_game_id(year, week, team_id)
+        if game_id is None:
             return
 
         if passing == "PASSING":
@@ -262,57 +289,64 @@ class DB():
     
 
 
-    def insert_values(self, start_year: int, end_year: int, league: str):
+    def insert_values(self, start_year: int = 2006, end_year: int = 2024):
         records_processed = 0
+        self.drop_table("PASSING")
+        self.create_table(CREATE_PASSING)
         
-        for year in range(start_year, end_year):
-            for info in self.INFO:
-                csv_file = self.START_FILE.format(info=info, year=year)
+        for year in range(start_year, end_year + 1):
+            for league in ["NFL"]: #, "NCAA"]:
+                for info in self.INFO:
+                    csv_file = self.START_FILE.format(league=league, info=info, year=year)
 
-                with open(csv_file, "r") as c:
-                    reader = csv.reader(c)
+                    if not os.path.exists(csv_file):
+                        continue
 
-                    print(f"On file: {csv_file}")
-                    
-                    # Begin transaction
-                    self.conn.execute("BEGIN TRANSACTION")
-                    
-                    for row in reader:
+                    with open(csv_file, "r") as c:
+                        reader = csv.reader(c)
 
-                        if row[1] == "player":
-                            continue
+                        print(f"On file: {csv_file}")
+                        
+                        # Begin transaction
+                        self.conn.execute("BEGIN TRANSACTION")
+                        
+                        for row in reader:
 
-                        week = int(row[0])
-                        team_name = row[4]
-                        player_id = row[2]
-                        player_name = row[1]
-                        pos = row[3]
-                        self.insert_player(player_id, player_name, pos)
-                        self.insert_team(team_name)
+                            if row[1] == "player":
+                                continue
+
+                            week = int(row[0])
+                            team_name = row[4]
+                            team_id = self.get_team_id(team_name)
+
+                            player_id = row[2]
+                            player_name = row[1]
+                            pos = row[3]
+                            self.insert_player(player_id, player_name, pos)
+                            
+                            
+                            if info == "Passing":
+                                self.insert_passing(row, year, week, team_id, "PASSING", league)
+                            elif info == "Passing_Depth":
+                                self.insert_passing(row, year, week, team_id, "PASSING_DEPTH", league)
+                            elif info == "Passing_Pressure":
+                                self.insert_passing(row, year, week, team_id, "PASSING_PRESSURE", league)
+                            elif info == "Receiving":
+                                self.insert_receiving(row, year, week, team_id, "RECEIVING", league)
+                            elif info == "Receiving_Depth":
+                                self.insert_receiving(row, year, week, team_id, "RECEIVING_DEPTH", league)
+                            elif info == "Receiving_Scheme":
+                                self.insert_receiving(row, year, week, team_id, "RECEIVING_SCHEME", league)
+                            
+                            records_processed += 1
+                            
+                            # Commit in batches
+                            if records_processed % self.cache == 0:
+                                self.conn.commit()
+                                self.conn.execute("BEGIN TRANSACTION")
                         
-                        
-                        if info == "Passing":
-                            self.insert_passing(row, year, week, team_name, "PASSING", league)
-                        elif info == "Passing_Depth":
-                            self.insert_passing(row, year, week, team_name, "PASSING_DEPTH", league)
-                        elif info == "Passing_Pressure":
-                            self.insert_passing(row, year, week, team_name, "PASSING_PRESSURE", league)
-                        elif info == "Receiving":
-                            self.insert_receiving(row, year, week, team_name, "RECEIVING", league)
-                        elif info == "Receiving_Depth":
-                            self.insert_receiving(row, year, week, team_name, "RECEIVING_DEPTH", league)
-                        elif info == "Receiving_Scheme":
-                            self.insert_receiving(row, year, week, team_name, "RECEIVING_SCHEME", league)
-                        
-                        records_processed += 1
-                        
-                        # Commit in batches
-                        if records_processed % self.cache == 0:
-                            self.conn.commit()
-                            self.conn.execute("BEGIN TRANSACTION")
-                    
-                    # Commit any remaining changes
-                    self.conn.commit()
+                        # Commit any remaining changes
+                        self.conn.commit()
 
         self.kill()
     
@@ -321,18 +355,7 @@ class DB():
 
 if __name__ == "__main__":
     db = DB()
-    db.drop_table("GAME_DATA")
-
-    db.create_table(GAME_DATA)
-    thing = {"NFL": "csv/nfl_games.csv", "NCAA": "csv/ncaa_games.csv"}
-    for league, fil in thing.items():
-        with open(fil, "r") as c:
-            reader = csv.reader(c)
-            for row in reader:
-                if row[1] == "Team":
-                    continue
-
-                db.insert_game(row, league)
-    
-
-    
+    # db.create_table(CREATE_PLAYERS)
+    db.insert_teams()
+    db.insert_games()
+    db.insert_values()

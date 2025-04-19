@@ -13,7 +13,7 @@ PRIMARY KEY (Player_ID, GAME_ID, TEAM_ID, YEAR, LEAGUE, TYPE)"""
 
 
 
-PLAYERS = """
+CREATE_PLAYERS = """
     CREATE TABLE PLAYERS (
         Player_ID INT PRIMARY KEY,
         Player_Name VARCHAR(255),
@@ -26,8 +26,9 @@ PLAYERS = """
 TEAMS = """
     CREATE TABLE TEAMS (
         TEAM_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-        Team_Name VARCHAR(255),
-        League VARCHAR(8)
+        Team_Abbr VARCHAR(8),
+        League VARCHAR(8),
+        Team_Name VARCHAR(255)
     )
 """
 
@@ -42,6 +43,7 @@ GAME_DATA = """
         Opponent_ID INT,
         Points_For INT,
         Points_Against INT,
+        Diff INT,
         TD INT,
         XPA INT,
         XPM INT,
@@ -65,7 +67,7 @@ GAME_DATA = """
 
 
 
-PASSING = f"""
+CREATE_PASSING = f"""
     CREATE TABLE IF NOT EXISTS PASSING (
     {START}
     aimed_passes INT,
@@ -92,6 +94,8 @@ PASSING = f"""
     {END}
 )
 """
+
+
 
 RECEIVING = f"""
     CREATE TABLE IF NOT EXISTS RECEIVING (
@@ -120,6 +124,7 @@ RECEIVING = f"""
 """
 
 
+
 PASS_SUM = """
     SUM(PASSING.passing_snaps) as snaps,
     SUM(PASSING.dropbacks) as db,
@@ -143,22 +148,26 @@ PASS_SUM = """
     ROUND(SUM(PASSING.grade_pass * PASSING.dropbacks) / NULLIF(SUM(PASSING.dropbacks), 0), 1) as weighted_grade
 """
 
+
+
 PASSING_SELECT = f"""
     SELECT
         PLAYERS.Player_Name,
-        PLAYERS.Player_ID,
         PASSING.Year,
         TEAMS.Team_Name,
+        PLAYERS.Player_Pos,
+        COUNT(DISTINCT PASSING.Game_ID) as gp,
         {PASS_SUM}
     FROM PASSING
 """
 
 
+
 TEAM_PASSING_SELECT = f"""
     SELECT
         TEAMS.Team_Name,
-        TEAMS.Team_ID,
         PASSING.Year,
+        COUNT(DISTINCT PASSING.Game_ID) as gp,
         {PASS_SUM}
     FROM PASSING
 """
@@ -196,9 +205,9 @@ RECEIVING_SELECT = f"""
 
 
 MAP = {
-    'passing': PASSING,
+    'passing': CREATE_PASSING,
     'receiving': RECEIVING,
-    'players': PLAYERS,
+    'players': CREATE_PLAYERS,
     'teams': TEAMS,
     'game_data': GAME_DATA,
 }
