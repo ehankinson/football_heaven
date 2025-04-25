@@ -4,6 +4,9 @@ Cargo.lock
 .vscode
 .DS_Store
 /db
+__pycache__/
+*.py[cod]
+*$py.class
 
 # Node.js files in root directory
 /node_modules
