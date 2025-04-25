@@ -49,6 +49,11 @@ class DB():
         self.conn.close()
     
 
+    
+    def commit(self) -> None:
+        self.conn.commit()
+
+
 
     def call_query(self, query: str) -> list[tuple]:
         self.cursor.execute(query)
@@ -163,8 +168,8 @@ class DB():
     
 
 
-    def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str, league: str):
-        stats = [int(row[2]), game_id, team_id, _type, year, league]
+    def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str, league: str, version: str):
+        stats = [int(row[2]), game_id, team_id, _type, year, league, version]
 
         for key, val in values.items():
             if "avg_depth_of_target" in key:
@@ -195,17 +200,22 @@ class DB():
 
                 stats.append(number)
 
-        query = """
-            INSERT INTO PASSING (
-                Player_ID, Game_ID, Team_ID, TYPE, YEAR, LEAGUE, aimed_passes, attempts, avg_depth_of_target,
+        self.quick_add_passing(stats)
+    
+
+
+    def quick_add_passing(self, result: list):
+        query = f"""
+            INSERT OR IGNORE INTO PASSING (
+                Player_ID, Game_ID, Team_ID, TYPE, YEAR, LEAGUE, VERSION, aimed_passes, attempts, avg_depth_of_target,
                 bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, 
                 interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, 
                 touchdowns, turnover_worthy_plays, yards, grade_pass
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES ({', '.join(['?'] * len(result))});
         """
-        self.cursor.execute(query, stats)
-    
+        self.cursor.execute(query, result)
+
 
 
     def _add_into_receiving(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str, league: str):
@@ -251,20 +261,20 @@ class DB():
 
 
 
-    def insert_passing(self, row: list, year: int, week: int, team_id: int, passing: str, league: str) -> None:
+    def insert_passing(self, row: list, year: int, week: int, team_id: int, passing: str, league: str, version: str) -> None:
         game_id = self.get_game_id(year, week, team_id)
         if game_id is None:
             return
 
         if passing == "PASSING":
-            self._add_into_passing(row, PASSING, game_id, team_id, year, "passing", league)
+            self._add_into_passing(row, PASSING, game_id, team_id, year, "passing", league, version)
         elif passing == "PASSING_DEPTH":
             for depth in PASSING_DEPTH:
                 for area in PASSING_DEPTH[depth]:
-                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}", league)
+                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}", league, version)
         else:
             for pre in PASSING_PRESSURE:
-                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, year, pre.lower(), league)
+                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, year, pre.lower(), league, version)
     
 
 
@@ -289,7 +299,7 @@ class DB():
     
 
 
-    def insert_values(self, start_year: int = 2006, end_year: int = 2024):
+    def insert_values(self, version: str, start_year: int = 2006, end_year: int = 2024):
         records_processed = 0
         self.drop_table("PASSING")
         self.create_table(CREATE_PASSING)
@@ -326,11 +336,11 @@ class DB():
                             
                             
                             if info == "Passing":
-                                self.insert_passing(row, year, week, team_id, "PASSING", league)
+                                self.insert_passing(row, year, week, team_id, "PASSING", league, version)
                             elif info == "Passing_Depth":
-                                self.insert_passing(row, year, week, team_id, "PASSING_DEPTH", league)
+                                self.insert_passing(row, year, week, team_id, "PASSING_DEPTH", league, version)
                             elif info == "Passing_Pressure":
-                                self.insert_passing(row, year, week, team_id, "PASSING_PRESSURE", league)
+                                self.insert_passing(row, year, week, team_id, "PASSING_PRESSURE", league, version)
                             elif info == "Receiving":
                                 self.insert_receiving(row, year, week, team_id, "RECEIVING", league)
                             elif info == "Receiving_Depth":
@@ -356,6 +366,7 @@ class DB():
 if __name__ == "__main__":
     db = DB()
     # db.create_table(CREATE_PLAYERS)
+    db.delete_table_values("PASSING")
     db.insert_teams()
     db.insert_games()
-    db.insert_values()
+    db.insert_values("0.0")

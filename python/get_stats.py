@@ -8,8 +8,8 @@ class GetStats():
 
     def __init__(self, db: DB) -> None:
         self.db = db
-        self.PASSING_HEADERS = ["Pick", "Year", "TEAM", "POS", "GP", "Snaps", "DB", "Cmp", "Aim", "Att", "Yds", "TD", "Int", "1D", "BTT", "TWP", "DRP", "Bat", "Hat", "TA", "Spk", "Sk", "Scrm", "Pen", "Grade", "FP", "SPRS"]
-        self.RECEIVING_HEADERS = ["Pick", "Year", "TEAM", "POS", "GP", "Snaps", "Wide", "Slot", "In", "RTS", "TGT", "REC", "YDS", "TD", "INT", "1D", "DRP", "YBC", "YAC", "AT", "FUM", "CT", "CR", "PEN", "RECV", "ROUTE", "FP", "SPRS"]
+        self.PASSING_HEADERS = ["Pick", "Year", "VERSION", "TEAM", "POS", "GP", "Snaps", "DB", "Cmp", "Aim", "Att", "Yds", "ADOT", "TD", "Int", "1D", "BTT", "TWP", "DRP", "Bat", "Hat", "TA", "Spk", "Sk", "Scrm", "Pen", "Grade", "FP", "SPRS"]
+        self.RECEIVING_HEADERS = ["Pick", "Year", "VERSION", "TEAM", "POS", "GP", "Snaps", "Wide", "Slot", "In", "RTS", "TGT", "REC", "YDS", "TD", "INT", "1D", "DRP", "YBC", "YAC", "AT", "FUM", "CT", "CR", "PEN", "RECV", "ROUTE", "FP", "SPRS"]
 
 
 
@@ -126,8 +126,8 @@ class GetStats():
 
 
     def season_passing(self, is_player: bool, args: list):
-        start_week, end_week, start_year, end_year, start_type, league, pos, limit = args
-        sum_query = get_players_passing(start_week, end_week, start_year, end_year, start_type, league, pos) if is_player else get_team_passing(start_week, end_week, start_year, end_year, start_type, league)
+        start_week, end_week, start_year, end_year, start_type, league, version, pos, limit = args
+        sum_query = get_players_passing(start_week, end_week, start_year, end_year, start_type, league, version, pos) if is_player else get_team_passing(start_week, end_week, start_year, end_year, start_type, league, version)
         sum_results = self.db.call_query(sum_query)
 
         headers = self.PASSING_HEADERS.copy()
@@ -145,7 +145,7 @@ class GetStats():
 
         final_results = []
         for result in sum_results:
-            if not result[snaps] >= max_att * 0.25:
+            if not result[snaps] >= max_att * 0.35:
                 continue
 
             result = list(result)
@@ -162,12 +162,7 @@ class GetStats():
 
     def season_receiving(self, is_player: bool, args: list):
         start_week, end_week, start_year, end_year, start_type, league, pos, limit = args
-        start_time = time.time()
-        grade_query = get_receiving_grades(start_week, end_week, start_year, end_year, start_type, league, pos)
-        end_time = time.time()
-        print(f"Time taken to get grades: {end_time - start_time} seconds")
-        grade_results = self.db.call_query(grade_query)
-        calculated_grades = self._calculate_receiving_grade(grade_results, is_player=is_player)
+        # calculated_grades = self._calculate_receiving_grade(grade_results, is_player=is_player)
 
         sum_query = get_players_receiving(start_week, end_week, start_year, end_year, start_type, league, pos)  # if is_player else get_team_receiving(start_week, end_week, start_year, end_year, start_type, league)
         sum_results = self.db.call_query(sum_query)
@@ -184,8 +179,8 @@ class GetStats():
             result.insert(17, result[12] - result[17])
             result.insert(6, sum(result[6:9]))
             result.pop(1)
-            result.append(round(calculated_grades[key]["grade2"], 1))
-            result.append(round(calculated_grades[key]["grade1"], 1))
+            # result.append(round(calculated_grades[key]["grade2"], 1))
+            # result.append(round(calculated_grades[key]["grade1"], 1))
             result.append(round(self._calculate_fantasy_points(result, "receiving"), 2))
             result.append(self.calculate_sprs(result[4], [result[-3], result[-2]], result[-1], "receiving"))
             final_results.append(result)
@@ -198,27 +193,29 @@ class GetStats():
 
 
     def season_passing_game(self, is_player: bool, args: list, side_of_ball: bool = False, print_table: bool = False):
-        start_week, end_week, start_year, end_year, start_type, league, pos, limit, team = args.values()
-        query = player_passing_game(start_week, end_week, start_year, end_year, start_type, league, team) if is_player else get_passing_game(start_week, end_week, start_year, end_year, start_type, league, team, opp=side_of_ball)
+        start_week, end_week, start_year, end_year, stat_type, league, version, pos, limit, team = args.values()
+        query = player_passing_game(start_week, end_week, start_year, end_year, stat_type, league, version, team) if is_player else get_passing_game(start_week, end_week, start_year, end_year, stat_type, league, version, team, opp=side_of_ball)
         results = self.db.call_query(query)
         return results
+
 
 
 if __name__ == "__main__":
     db = DB()
     team = "NO"
-    start_week = 29
-    end_week = 32
-    sy = 2006
-    ey = 2024
+    start_week = 1
+    end_week = 18
+    sy = 2023
+    ey = 2023
     start_type = "passing"
     league = "NFL"
+    version = "0.1"
     pos = ["QB"]
     limit = 50
 
-    is_player = False
+    is_player = True
     opp = False
-    data = [start_week, end_week, sy, ey, start_type, league, pos, limit]
+    data = [start_week, end_week, sy, ey, start_type, league, version, pos, limit]
 
     stats = GetStats(db)
 
