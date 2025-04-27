@@ -76,6 +76,44 @@
             "St. Louis Rams": 16
         }
     },
+    "2008": {
+        "AFC": {
+            "Tennessee Titans": 1,
+            "Pittsburgh Steelers": 2,
+            "Miami Dolphins": 3,
+            "San Diego Chargers": 4,
+            "Indianapolis Colts": 5,
+            "Balitmore Ravens": 6,
+            "New England Patriots": 7,
+            "New York Jets": 8,
+            "Houston Texans": 9,
+            "Denver Broncos": 10,
+            "Oakland Raiders": 11,
+            "Cincinnati Bengals": 12,
+            "Buffalo Bills": 13,
+            "Jacksonville Jaguars": 14,
+            "Cleveland Browns": 15,
+            "Kansas City Chiefs": 16
+        },
+        "NFC": {
+            "New York Giants": 1,
+            "Carolina Panthers": 2,
+            "Minnesota Vikings": 3,
+            "Arizona Cardinals": 4,
+            "Atlanta Falcons": 5,
+            "Philadelphia Eagles": 6,
+            "Tampa Bay Buccaneers": 7,
+            "Dallas Cowboys": 8,
+            "Chicago Bears": 9,
+            "San Francisco 49ers": 10,
+            "Green Bay Packers": 11,
+            "Seattle Seahawks": 12,
+            "Washington Redskins": 13,
+            "New Orleans Saints": 14,
+            "St. Louis Rams": 15,
+            "Detroit Lions": 16
+        }
+    },
     "2023": {
         "AFC": {
             "Baltimore Ravens": 1,

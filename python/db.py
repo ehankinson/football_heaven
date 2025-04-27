@@ -89,14 +89,27 @@ class DB():
 
 
 
-    def get_games(self, team_id: int, version: str, year: int = None) -> list[list]:
+    def get_games(self, team_id: int = None, version: str = None, year: int = None, start_week: int = None, end_week: int = None) -> list[list]:
+        conditions = []
+        if team_id is not None:
+            conditions.append(f"Team_ID = {team_id}")
+        if version is not None:
+            conditions.append(f"Version = {version}")
         if year is not None:
-            self.cursor.execute("SELECT * FROM GAME_DATA WHERE Year = ? AND Team_ID = ? AND Version = ?", (year, team_id, version))
-        else:
-            self.cursor.execute("SELECT * FROM GAME_DATA WHERE Team_ID = ? AND Version = ?", (team_id, version))
+            conditions.append(f"Year = {year}")
+        if start_week is not None:
+            conditions.append(f"Week >= {start_week}")
+        if end_week is not None:
+            conditions.append(f"Week <= {end_week}")
 
+        query = "SELECT * FROM GAME_DATA"
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        self.cursor.execute(query)
         result = self.cursor.fetchall()
         return [list(row) for row in result]
+
 
 
     def get_game_id(self, year: int, week: int, team_id: int, version: str) -> int:
@@ -135,10 +148,12 @@ class DB():
                 team_abbr = row[0].strip()  # Remove regular spaces and special characters
                 league = row[1]
                 team_name = row[2].strip()
+                division = row[3].strip()
+                conference = row[4].strip()
                 query = """
-                    INSERT OR IGNORE INTO TEAMS (Team_Abbr, League, Team_Name) VALUES (?, ?, ?)
+                    INSERT OR IGNORE INTO TEAMS (Team_Abbr, League, Team_Name, Division, Conference) VALUES (?, ?, ?, ?, ?)
                 """ 
-                self.cursor.execute(query, (team_abbr, league, team_name))
+                self.cursor.execute(query, (team_abbr, league, team_name, division, conference))
 
         self.conn.commit()
 
@@ -400,6 +415,6 @@ if __name__ == "__main__":
     db = DB()
     # db.create_table(CREATE_PLAYERS)
     db.insert_teams()
-    db.insert_games()
-    db.delete_table_values("PASSING")
-    db.insert_values("0.0")
+    # db.insert_games()
+    # db.delete_table_values("PASSING")
+    # db.insert_values("0.0")

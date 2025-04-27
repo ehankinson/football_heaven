@@ -29,7 +29,9 @@ TEAMS = """
         TEAM_ID INTEGER PRIMARY KEY AUTOINCREMENT,
         Team_Abbr VARCHAR(8),
         League VARCHAR(8),
-        Team_Name VARCHAR(255)
+        Team_Name VARCHAR(255),
+        Division VARCHAR(16),
+        Conference VARCHAR(16)
     )
 """
 
