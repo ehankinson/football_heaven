@@ -1,0 +1,117 @@
+{
+    "2006": {
+        "AFC": {
+            "San Diego Chargers": 1,
+            "Baltimore Ravens": 2,
+            "Indianapolis Colts": 3,
+            "New England Patriots": 4,
+            "New York Jets": 5,
+            "Kansas City Chiefs": 6,
+            "Denver Broncos": 7,
+            "Cincinnati Bengals": 8,
+            "Tennessee Titans": 9,
+            "Jacksonville Jaguars": 10,
+            "Pittsburgh Steelers": 11,
+            "Buffalo Bills": 12,
+            "Houston Texans": 13,
+            "Miami Dolphins": 14,
+            "Cleveland Browns": 15,
+            "Oakland Raiders": 16
+        },
+        "NFC": {
+            "Chicago Bears": 1,
+            "New Orleans Saints": 2,
+            "Philadelphia Eagles": 3,
+            "Seattle Seahawks": 4,
+            "Dallas Cowboys": 5,
+            "New York Giants": 6,
+            "Green Bay Packers": 7,
+            "Carolina Panthers": 8,
+            "St. Louis Rams": 9,
+            "San Francisco 49ers": 10,
+            "Atlanta Falcons": 11,
+            "Minnesota Vikings": 12,
+            "Arizona Cardinals": 13,
+            "Washington Redskins": 14,
+            "Tampa Bay Buccaneers": 15,
+            "Detroit Lions": 16
+
+        }
+    },
+    "2007": {
+        "AFC": {
+            "New England Patriots": 1,
+            "Indianapolis Colts": 2,
+            "San Diego Chargers": 3,
+            "Pittsburgh Steelers": 4,
+            "Jacksonville Jaguars": 5,
+            "Tennessee Titans": 6,
+            "Cleveland Browns": 7,
+            "Denver Broncos": 8,
+            "Buffalo Bills": 9,
+            "Cincinnati Bengals": 10,
+            "New York Jets": 11,
+            "Kansas City Chiefs": 12,
+            "Houston Texans": 13,
+            "Baltimore Ravens": 14,
+            "Oakland Raiders": 15,
+            "Miami Dolphins": 16
+        },
+        "NFC": {
+            "Dallas Cowboys": 1,
+            "Green Bay Packers": 2,
+            "Seattle Seahawks": 3,
+            "Tampa Bay Buccaneers": 4,
+            "New York Giants": 5,
+            "Washington Redskins": 6,
+            "Minnesota Vikings": 7,
+            "Arizona Cardinals": 8,
+            "Carolina Panthers": 9,
+            "New Orleans Saints": 10,
+            "Detroit Lions": 11,
+            "San Francisco 49ers": 12,
+            "Philadelphia Eagles": 13,
+            "Chicago Bears": 14,
+            "Atlanta Falcons": 15,
+            "St. Louis Rams": 16
+        }
+    },
+    "2023": {
+        "AFC": {
+            "Baltimore Ravens": 1,
+            "Buffalo Bills": 2,
+            "Kansas City Chiefs": 3,
+            "Houston Texans": 4,
+            "Cleveland Browns": 5,
+            "Miami Dolphins": 6,
+            "Pittsburgh Steelers": 7,
+            "Jacksonville Jaguars": 8,
+            "Indianapolis Colts": 9,
+            "Las Vegas Raiders": 10,
+            "Denver Broncos": 11,
+            "New York Jets": 12,
+            "Cincinnati Bengals": 13,
+            "Tennessee Titans": 14,
+            "Los Angeles Chargers": 15,
+            "New England Patriots": 16
+        },
+        "NFC": {
+            "San Francisco 49ers": 1,
+            "Dallas Cowboys": 2,
+            "Detroit Lions": 3,
+            "Tampa Bay Buccaneers": 4,
+            "Philadelphia Eagles": 5,
+            "Los Angeles Rams": 6,
+            "Green Bay Packers": 7,
+            "Seattle Seahawks": 8,
+            "New Orleans Saints": 9,
+            "Minnesota Vikings": 10,
+            "Atlanta Falcons": 11,
+            "New York Giants": 12,
+            "Chicago Bears": 13,
+            "Washington Redskins": 14,
+            "Arizona Cardinals": 15,
+            "Carolina Panthers": 16
+        }
+    }
+}

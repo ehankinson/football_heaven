@@ -3,8 +3,9 @@ import csv
 import time
 import sqlite3
 
-from queries import GAME_DATA, TEAMS, CREATE_PASSING, CREATE_PLAYERS
+from tqdm import tqdm
 from constants import *
+from queries import GAME_DATA, TEAMS, CREATE_PASSING, CREATE_PLAYERS
 
 MAP = [
     'passing',
@@ -348,8 +349,6 @@ class DB():
 
                     with open(csv_file, "r") as c:
                         reader = csv.reader(c)
-
-                        print(f"On file: {csv_file}")
                         
                         # Begin transaction
                         self.conn.execute("BEGIN TRANSACTION")
@@ -400,5 +399,7 @@ class DB():
 if __name__ == "__main__":
     db = DB()
     # db.create_table(CREATE_PLAYERS)
+    db.insert_teams()
+    db.insert_games()
     db.delete_table_values("PASSING")
     db.insert_values("0.0")

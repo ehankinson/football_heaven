@@ -205,14 +205,14 @@ class GetStats():
 if __name__ == "__main__":
     db = DB()
     team = "NO"
-    year = 2024
+    year = 2006
     start_week = 1
     end_week = 32
     sy = 2006
     ey = 2024
     start_type = "passing"
     league = "NFL"
-    version = "1.0"
+    version = "1.1"
     pos = ["QB"]
     limit = 50
 

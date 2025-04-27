@@ -1,3 +1,4 @@
+import json
 import time
 
 from db import DB
@@ -5,8 +6,12 @@ from get_stats import GetStats
 
 VERSIONS = ["0.1", "1.0", "1.1", "2.0", "2.1", "3.0", "3.1", "4.0", "5.0"]
 STATS = ["passing"]
+
+PLAYER = True
+TEAM = False
 OFFENSE = False
 DEFENSE = True
+
 YEARS = {
     "NFL": {"start": 2006, "end": 2024},
     "NCAA": {"start": 2014, "end": 2024}
@@ -64,6 +69,9 @@ class MakeVersion():
         self.converter = Converter()
         self.passing_types = ["passing", "behind_los_central", "behind_los_left", "behind_los_right", "deep_central", "deep_left", "deep_right", "intermediate_central", "intermediate_left", "intermediate_right", "short_central", "short_left", "short_right", "no_pressure", "pressure", "blitz", "no_blitz"]
         self.passing_countables = {"snaps": min, "db": min, "cmp": max, "aim": min, "att": min, "yds": max, "adot": max, "td": max, "int": min, "1d": max, "btt": max, "twp": min, "drp": min, "bat": min, "hat": min, "ta": min, "spk": min, "sk": min, "scrm": min, "pen": min, "grade_pass": max}
+        
+        with open("json/ranks0.0.json", "r") as f:
+            self.ranks00 = json.load(f)
 
 
     
@@ -72,6 +80,57 @@ class MakeVersion():
             if game_stats["week"] == game and game_stats["year"] == year:
                 return i
         return -1
+
+
+
+    def _get_games(self, player_stats: dict):
+        dict_games = self.converter.convert_results(self.db.get_games(player_stats["team_id"], "0.0"), False, "game_data")
+        games = {}
+        for game in dict_games:
+            games[f"{game['year']}_{game['week']}"] = game
+        return games
+
+
+
+    def _get_stats_zero_one(self, year: int, args: dict, stat: str):
+        team = args["team"]
+
+        year_stats = self.ranks00[str(year)]
+        team_name = self.db.call_query(f"SELECT Team_Name FROM TEAMS WHERE Team_Abbr = '{team}'")[0][0]
+        
+        key = "AFC" if team_name in year_stats["AFC"] else "NFC"
+        opp_team = list(year_stats[key].keys())[16 - year_stats[key][team_name]]
+        opp_team_abr = self.db.call_query(f"SELECT Team_Abbr FROM TEAMS WHERE Team_Name = '{opp_team}'")[0][0]
+
+        # getting regular season stats for the team
+        offense_stats = self.converter.convert_results(self.stats.season_passing_game(TEAM, args, side_of_ball=OFFENSE), TEAM, stat)
+        defense_stats = self.converter.convert_results(self.stats.season_passing_game(TEAM, args, side_of_ball=DEFENSE), TEAM, stat)
+        passing_stats = self.converter.convert_results(self.stats.season_passing_game(PLAYER, args), PLAYER, stat)
+
+        # updating the args to get the inverse team stats in the playoffs
+        args["start_week"], args["end_week"], args["team"] = 29, 32, opp_team_abr
+        playoff_off = self.converter.convert_results(self.stats.season_passing_game(TEAM, args, side_of_ball=OFFENSE), TEAM, stat)
+        playoff_def = self.converter.convert_results(self.stats.season_passing_game(TEAM, args, side_of_ball=DEFENSE), TEAM, stat)
+
+        offense_stats += playoff_off
+        defense_stats += playoff_def
+
+        args["start_week"], args["end_week"], args["team"] = 18 - len(playoff_off) + 1, 18, team
+        reuse_player = self.converter.convert_results(self.stats.season_passing_game(PLAYER, args), PLAYER, stat)
+
+        passing_stats += reuse_player
+
+        return offense_stats, defense_stats, passing_stats
+
+
+    
+    def _get_stats(self, year: int, version: str, args: dict, stat: str):
+        offense_stats, defense_stats, player_stats = None, None, None
+        match version:
+            case "0.1":
+                offense_stats, defense_stats, player_stats = self._get_stats_zero_one(year, args, stat)
+
+        return offense_stats, defense_stats, player_stats
 
 
 
@@ -176,11 +235,8 @@ class MakeVersion():
 
 
 
-    def _convert_one_zero(self, offense: list, defense: list, player_stats: list, stat: str):
-        dict_games = self.converter.convert_results(self.db.get_games(player_stats[0]["team_id"], "0.0"), False, "game_data")
-        games = {}
-        for game in dict_games:
-            games[f"{game['year']}_{game['week']}"] = game
+    def _convert_one_zero(self, version: str, offense: list, defense: list, player_stats: list, stat: str):
+        games = self._get_games(player_stats[0])
 
         best = None
         new_player_stats = []
@@ -200,29 +256,31 @@ class MakeVersion():
 
                 stats[key] = week_stats[key]
             
-            stats["version"] = "1.0"
+            stats["version"] = version
             del stats["week"]
-            self._switch_stats(off_game, new_off_game, week_stats, stats)
+            if version.endswith(".1"):
+                self._switch_stats(off_game, new_def_game, week_stats, stats)
+            else:
+                self._switch_stats(off_game, new_off_game, week_stats, stats)
+
             new_player_stats.append(stats)
         
         return new_player_stats
 
 
 
-    def create_version(self, is_player: bool, args: list, stat: str, to_be_version: str):
+    def create_version(self, args: list, stat: str, to_be_version: str):
         final_results = []
         for _type in self.passing_types:
-            args["type"] = _type
-            offense_stats = self.converter.convert_results(self.stats.season_passing_game(is_player, args, side_of_ball=OFFENSE), is_player, stat)
-            defense_stats = self.converter.convert_results(self.stats.season_passing_game(is_player, args, side_of_ball=DEFENSE), is_player, stat)
-            passing_stats = self.converter.convert_results(self.stats.season_passing_game(not is_player, args), not is_player, stat)
+            for year in range(args["start_year"], args["end_year"] + 1):
+                args["type"] = _type
+                offense_stats, defense_stats, passing_stats = self._get_stats(year, to_be_version, args, stat)
 
             new_player_stats = None
-            match to_be_version:
-                case "0.1":
-                    new_player_stats = self._convert_zero_one(offense_stats, defense_stats, passing_stats)
-                case "1.0":
-                    new_player_stats = self._convert_one_zero(offense_stats, defense_stats, passing_stats, stat)
+            if to_be_version.startswith("0"):
+                new_player_stats = self._convert_zero_one(offense_stats, defense_stats, passing_stats)
+            elif to_be_version.startswith("1"):
+                new_player_stats = self._convert_one_zero(to_be_version, offense_stats, defense_stats, passing_stats, stat)
 
             final_results += new_player_stats
         return final_results
@@ -250,16 +308,17 @@ class MakeVersion():
     def convert_stats(self, league: str, is_player: bool) -> None:
         start_time = time.time()
         for version in VERSIONS:
-            if version not in ["0.1", "1.0"]:
+            if version not in ["0.1", "1.0", "1.1"]:
                 break
 
             teams = self.db.get_teams(league)
+            teams = ["CAR"]
             for team in teams:
                 data = {
                     "start_week": 1,
-                    "end_week": 18 if version == "0.1" else 32,
-                    "start_year": YEARS[league]["start"],
-                    "end_year": YEARS[league]["end"],
+                    "end_week": 18 if version.endswith(".1") else 32,
+                    "start_year": 2023, #YEARS[league]["start"],
+                    "end_year": 2023, #YEARS[league]["end"],
                     "type": None,
                     "league": league,
                     "version": '0.0',
@@ -270,7 +329,7 @@ class MakeVersion():
 
                 for stat in STATS:
                     print(f"Converting {stat} for {team} in {league} version {version}")
-                    results = self.create_version(is_player, data, stat, version)
+                    results = self.create_version(data, stat, version)
                     self.insert_into_db(results, stat)
                     
         end_time = time.time()
