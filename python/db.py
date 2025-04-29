@@ -414,7 +414,7 @@ class DB():
 if __name__ == "__main__":
     db = DB()
     # db.create_table(CREATE_PLAYERS)
-    db.insert_teams()
-    # db.insert_games()
-    # db.delete_table_values("PASSING")
+    # db.insert_teams()
+    db.insert_games()
+    db.drop_table("PASSING")
     # db.insert_values("0.0")
