@@ -2,10 +2,10 @@ START = """
     Player_ID INT,
     GAME_ID INT,
     TEAM_ID INT,
+    TYPE VARCHAR(64),
     YEAR INT,
     LEAGUE VARCHAR(8),
     VERSION VARCHAR(8),
-    TYPE VARCHAR(64),
 """
 END = """
 FOREIGN KEY (Player_ID) REFERENCES PLAYERS(Player_ID),
@@ -102,7 +102,7 @@ CREATE_PASSING = f"""
 
 
 
-RECEIVING = f"""
+CREATE_RECEIVING = f"""
     CREATE TABLE IF NOT EXISTS RECEIVING (
     {START}
     avoided_tackles INT,
@@ -125,7 +125,161 @@ RECEIVING = f"""
     grades_hands_drop INT,
     grades_pass_route INT,
     {END}
-)
+    )
+"""
+
+
+CREATE_RUSHING =f"""
+    CREATE TABLE IF NOT EXISTS RUSHING (
+    {START}
+    attempts INT,
+    avoided_tackles INT,
+    breakaway_attempts INT,
+    breakaway_yards INT,
+    designed_yards INT,
+    explosive INT,
+    first_downs INT,
+    fumbles INT,
+    gap_attempts INT,
+    penalties INT,
+    run_play INT,
+    scramble_yards INT,
+    scramble INT,
+    touchdowns INT,
+    yards INT,
+    yards_after_contact INT,
+    zone_attempts INT,
+    grades_run INT,
+    grades_hands_fumble INT,
+    {END}    
+    )
+"""
+
+
+
+CREATE_BLOCKING = f"""
+    CREATE TABLE IF NOT EXISTS BLOCKING (
+    {START}
+    grades_pass_block INT,
+    grades_run_block INT,
+    penalties INT,
+    snap_counts_ce INT,
+    snap_counts_lg INT,
+    snap_counts_lt INT,
+    snap_counts_offense INT,
+    snap_counts_pass_block INT,
+    snap_counts_pass_play INT,
+    snap_counts_rg INT,
+    snap_counts_rt INT,
+    snap_counts_run_block INT,
+    snap_counts_te INT,
+    {END}
+    )
+"""
+
+
+
+CREATE_PASS_BLOCKING = f"""
+    CREATE TABLE IF NOT EXISTS PASS_BLOCKING (
+    {START}
+    grades_pass_block INT,
+    hits_allowed INT,
+    hurries_allowed INT,
+    pressures_allowed INT,
+    sacks_allowed INT,
+    snap_counts_pass_play INT,
+    true_pass_set_grades_pass_block INT,
+    true_pass_set_hits_allowed INT,
+    true_pass_set_hurries_allowed INT,
+    true_pass_set_pressures_allowed INT,
+    true_pass_set_sacks_allowed INT,
+    true_pass_set_snap_counts_pass_play INT,
+    {END}
+    )
+"""
+
+
+
+CREATE_RUN_BLOCKING = f"""
+    CREATE TABLE IF NOT EXISTS RUN_BLOCKING (
+    {START}
+    gap_grades_run_block INT,
+    gap_snap_counts_run_block INT,
+    grades_run_block INT,
+    snap_counts_run_block INT,
+    penalties INT,
+    zone_grades_run_block INT,
+    zone_snap_counts_run_block INT,
+    {END}
+    )
+"""
+
+
+INSERT_START = "Player_ID, Game_ID, Team_ID, TYPE, YEAR, LEAGUE, VERSION"
+PASSING_INSERT = """
+    INSERT OR IGNORE INTO PASSING (
+        {start}, aimed_passes, attempts, avg_depth_of_target,
+        bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, 
+        interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, 
+        touchdowns, turnover_worthy_plays, yards, grade_pass
+    ) 
+    VALUES ({result});
+"""
+
+
+RECEIVING_INSERT = """
+    INSERT OR IGNORE INTO RECEIVING (
+        {start}, avoided_tackles, contested_reception,
+        contested_targets, drops, first_downs, fumbles, inline_snaps, interceptions,
+        penalties, receptions, routes, slot_snaps, targets, touchdowns, wide_snaps,
+        yards, yards_after_catch, grades_hands_drop, grades_pass_route
+    )
+    VALUES ({result})
+"""
+
+
+
+RUSHING_INSERT = """
+    INSERT INTO RUSHING (
+        {start}, attempts, avoided_tackles, breakaway_attempts,
+        breakaway_yards, designed_yards, explosive, first_downs, fumbles, gap_attempts,
+        penalties, run_play, scramble_yards, scramble, touchdowns, yards, yards_after_contact,
+        zone_attempts, grades_run, grades_hands_fumble
+    )
+    VALUES ({result})
+"""
+
+
+
+BLOCKING_INSERT = """
+    INSERT OR IGNORE INTO BLOCKING (
+        {start}, grades_pass_block, grades_run_block, penalties, snap_counts_ce, snap_counts_lg,
+        snap_counts_lt, snap_counts_offense, snap_counts_pass_block, snap_counts_pass_play, snap_counts_rg,
+        snap_counts_rt, snap_counts_run_block, snap_counts_te
+    )
+    VALUES ({result})
+"""
+
+
+
+PASS_BLOCKING_INSERT = """
+    INSERT OR IGNORE INTO PASS_BLOCKING (
+        {start}, grades_pass_block, hits_allowed, hurries_allowed, pressures_allowed,
+        sacks_allowed, snap_counts_pass_play, true_pass_set_grades_pass_block, true_pass_set_hits_allowed,
+        true_pass_set_hurries_allowed, true_pass_set_pressures_allowed, true_pass_set_sacks_allowed,
+        true_pass_set_snap_counts_pass_play
+    )
+    values ({result})
+"""
+
+
+
+RUN_BLOCKING_INSERT = """
+    INSERT OR IGNORE INTO RUN_BLOCKING (
+        {start}, gap_grades_run_block, gap_snap_counts_run_block, grades_run_block,
+        snap_counts_run_block, penalties, zone_grades_run_block, zone_snap_counts_run_block
+    )
+    VALUES ({result})
 """
 
 
@@ -213,7 +367,7 @@ RECEIVING_SELECT = f"""
 
 MAP = {
     'passing': CREATE_PASSING,
-    'receiving': RECEIVING,
+    'receiving': CREATE_RECEIVING,
     'players': CREATE_PLAYERS,
     'teams': TEAMS,
     'game_data': GAME_DATA,

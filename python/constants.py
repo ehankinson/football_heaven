@@ -555,25 +555,25 @@ RECEIVING_DEPTH = {
             "center_behind_los_grades_pass_route": 47,
         },
         "LEFT": {
-            "left_behind_los_avoided_tackles": 183,
-            "left_behind_los_contested_receptions": 186,
-            "left_behind_los_contested_targets": 187,
-            "left_behind_los_drops": 189,
-            "left_behind_los_first_downs": 190,
-            "left_behind_los_fumbles": 191,
+            "left_behind_los_avoided_tackles": 184,
+            "left_behind_los_contested_receptions": 187,
+            "left_behind_los_contested_targets": 188,
+            "left_behind_los_drops": 190,
+            "left_behind_los_first_downs": 191,
+            "left_behind_los_fumbles": 192,
             "left_behind_los_inline_snaps": None,
-            "left_behind_los_interceptions": 194,
+            "left_behind_los_interceptions": 195,
             "left_behind_los_penalties": None,
-            "left_behind_los_receptions": 199,
-            "left_behind_los_routes": 201,
+            "left_behind_los_receptions": 200,
+            "left_behind_los_routes": 202,
             "left_behind_los_slot_snaps": None,
-            "left_behind_los_targets": 203,
-            "left_behind_los_touchdows": 205,
+            "left_behind_los_targets": 204,
+            "left_behind_los_touchdows": 206,
             "left_behind_los_wide_snaps": None,
-            "left_behind_los_yards": 206,
-            "left_behind_los_yards_after_catch": 207,
-            "left_behind_los_grades_hands_drop": 192,
-            "left_behind_los_grades_pass_route": 193,
+            "left_behind_los_yards": 207,
+            "left_behind_los_yards_after_catch": 208,
+            "left_behind_los_grades_hands_drop": 193,
+            "left_behind_los_grades_pass_route": 194,
         },
         "RIGHT": {
             "right_behind_los_avoided_tackles": 330,
@@ -861,5 +861,53 @@ RUSHING = {
     "yards": 42,
     "yards_after_contact": 43,
     "zone_attempts": 47,
+    "grades_run": 29,
     "grades_hands_fumble": 23
+}
+
+
+
+BLOCKING = {
+    "grades_pass_block": 10,
+    "grades_run_block": 11,
+    "penalties": 18,
+    "snap_counts_ce": 22,
+    "snap_counts_lg": 23,
+    "snap_counts_lt": 24,
+    "snap_counts_offense": 25,
+    "snap_counts_pass_block": 26,
+    "snap_counts_pass_play": 27,
+    "snap_counts_rg": 28,
+    "snap_counts_rt": 29,
+    "snap_counts_run_block": 30,
+    "snap_counts_te": 31
+}
+
+
+
+PASS_BLOCKING = {
+    "grades_pass_block": 8,
+    "hits_allowed": 9,
+    "hurries_allowed": 10,
+    "pressures_allowed": 16,
+    "sacks_allowed": 17,
+    "snap_counts_pass_play": 19,
+    "true_pass_set_grades_pass_block": 20,
+    "true_pass_set_hits_allowed": 21,
+    "true_pass_set_hurries_allowed": 22, 
+    "true_pass_set_pressures_allowed": 27,
+    "true_pass_set_sacks_allowed": 28, 
+    "true_pass_set_snap_counts_pass_play": 30
+}
+
+
+
+RUN_BLOCKING = {
+    "gap_grades_run_block": 8,
+    "gap_snap_counts_run_block": 10,
+    "grades_run_block": 13,
+    "snap_counts_run_block": 16,
+    "penalties": 14,
+    "zone_grades_run_block": 18,
+    "zone_snap_counts_run_block": 20
 }

@@ -5,8 +5,9 @@ import sqlite3
 
 from tqdm import tqdm
 from constants import *
-from queries import GAME_DATA, TEAMS, CREATE_PASSING, CREATE_PLAYERS
+from queries import GAME_DATA, TEAMS, CREATE_PASSING, CREATE_PLAYERS, CREATE_RECEIVING, CREATE_RUSHING, CREATE_BLOCKING, CREATE_PASS_BLOCKING, CREATE_RUN_BLOCKING, INSERT_START, PASSING_INSERT, RECEIVING_INSERT, RUSHING_INSERT, BLOCKING_INSERT, PASS_BLOCKING_INSERT, RUN_BLOCKING_INSERT
 
+PLAYER_ID = 2
 MAP = [
     'passing',
     'receiving',
@@ -14,6 +15,17 @@ MAP = [
     'teams',
     'game_data',
 ]
+
+INSERT_TABLE = {
+    "passing": PASSING_INSERT,
+    "receiving": RECEIVING_INSERT,
+    "rushing": RUSHING_INSERT,
+    "blocking": BLOCKING_INSERT,
+    "pass_blocking": PASS_BLOCKING_INSERT,
+    "run_blocking": RUN_BLOCKING_INSERT
+}
+
+
 
 class DB():
     
@@ -24,12 +36,13 @@ class DB():
             "Passing",
             "Passing_Depth",
             "Passing_Pressure",
-            # "Receiving",
-            # "Receiving_Depth",
-            # "Receiving_Scheme",
-            # "Rushing",
-            # "Blocking_Pass",
-            # "Blocking_Rush",
+            "Receiving",
+            "Receiving_Depth",
+            "Receiving_Scheme",
+            "Rushing",
+            "Blocking",
+            "Pass_Blocking",
+            "Run_Blocking",
             # "Defense_Coverage",
             # "Defense_Coverage_Scheme",
             # "Defense_Pass_Rush",
@@ -43,7 +56,19 @@ class DB():
         self.cursor.execute("PRAGMA journal_mode = MEMORY")
         self.cursor.execute("PRAGMA temp_store = MEMORY")
         self.cursor.execute(f"PRAGMA cache_size = {self.cache}")
-    
+
+        self.TABLES = {
+            "TEAMS": self.insert_teams,
+            "GAME_DATA": self.insert_games,
+            "PLAYERS": CREATE_PLAYERS,
+            "PASSING": CREATE_PASSING,
+            "RECEIVING": CREATE_RECEIVING,
+            "RUSHING": CREATE_RUSHING,
+            "BLOCKING": CREATE_BLOCKING,
+            "PASS_BLOCKING": CREATE_PASS_BLOCKING,
+            "RUN_BLOCKING": CREATE_RUN_BLOCKING
+        }
+
 
 
     def kill(self) -> None:
@@ -156,6 +181,16 @@ class DB():
                 self.cursor.execute(query, (team_abbr, league, team_name, division, conference))
 
         self.conn.commit()
+    
+
+
+    def create_tables(self):
+        for name, query in self.TABLES.items():
+            if isinstance(query, str):
+                self.drop_table(name)
+                self.create_table(query)
+            else:
+                query()
 
     
 
@@ -217,149 +252,53 @@ class DB():
     
 
 
-    def _add_into_passing(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str, league: str, version: str):
-        stats = [int(row[2]), game_id, team_id, _type, year, league, version]
-
+    def add_into_db(self, row: list, values: list, args: list):
+        game_id, team_id, year, _type, league, version, insert_key = args.values()
+        stats = [int(row[PLAYER_ID]), game_id, team_id, _type, year, league, version]
         for key, val in values.items():
-            if "avg_depth_of_target" in key:
-                if row[val] == '':
-                    stats.append(0)
-                    continue
-
-                new_value = int(round(float(row[val]) * int(row[val - 2]), 0))
-                stats.append(new_value)
-            elif "grades_pass" in key or "grade_pass" in key:
-                if row[val] == '':
-                    stats.append(0)
-                    continue
-
+            if val is None or row[val] == '':
+                stats.append(0)
+            elif "grade" in key:
                 stats.append(float(row[val]))
             else:
-                if val is None:
-                    stats.append(0)
-                    continue
-
                 try:
-                    number = int(row[val])
-                except:
-                    if row[val] == '':
-                        number = 0
-                    else:
-                        number = int(float(row[val]))
+                    if "avg_depth_of_target" in key:
+                        new_value = int(round(float(row[val]) * int(row[val - 2]), 0))
+                        stats.append(new_value)
+                    elif "depth_of_target" in key:
+                        stats.append(float(row[val]))
+                    else: 
+                        stats.append(int(row[val]))
+                except Exception as e:
+                    print(key)
+                    print(row[val])
+                    raise f"There was an issue formatting {key} for val {row[val]}. ERROR: {e}"
+        
+        self.insert_query(insert_key, stats)
 
-                stats.append(number)
-
-        self.quick_add_passing(stats)
-    
 
 
-    def quick_add_passing(self, result: list):
-        query = f"""
-            INSERT OR IGNORE INTO PASSING (
-                Player_ID, Game_ID, Team_ID, TYPE, YEAR, LEAGUE, VERSION, aimed_passes, attempts, avg_depth_of_target,
-                bats, big_time_throws, completions, dropbacks, drops, first_downs, hit_as_threw, 
-                interceptions, passing_snaps, penalties, sacks, scrambles, spikes, thrown_aways, 
-                touchdowns, turnover_worthy_plays, yards, grade_pass
-            ) 
-            VALUES ({', '.join(['?'] * len(result))});
-        """
+    def insert_query(self, key: str, result: list):
+        res = ', '.join(['?'] * len(result))
+        query = INSERT_TABLE[key]
+        query = query.format(start=INSERT_START, result=res)
         self.cursor.execute(query, result)
-
-
-
-    def _add_into_receiving(self, row: list, values: list, game_id: int, team_id: int, year: int, _type: str, league: str):
-        stats = [int(row[2]), game_id, team_id, _type, year, league]
-
-        for key, val in values.items():
-
-            if val is None:
-                val = 0
-
-            if "depth_of_target" in key:
-                if row[val] == '':
-                    stats.append(0)
-                    continue
-
-                stats.append(float(row[val]))
-            elif "grades_hands_drop" in key or "grades_pass_route" in key:
-                if row[val] == '':
-                    stats.append(0)
-                    continue
-
-                stats.append(float(row[val]))
-            else:
-                try:
-                    number = int(row[val])
-                except:
-                    if row[val] == '':
-                        number = 0
-                    else:
-                        number = int(float(row[val]))
-                stats.append(number)
-
-        query = """
-            INSERT INTO RECEIVING (
-                Player_ID, Game_ID, Team_ID, Type, Year, League, avoided_tackles, contested_reception,
-                contested_targets, drops, first_downs, fumbles, inline_snaps, interceptions,
-                penalties, receptions, routes, slot_snaps, targets, touchdowns, wide_snaps,
-                yards, yards_after_catch, grades_hands_drop, grades_pass_route
-            ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-        """
-        self.cursor.execute(query, stats)
-
-
-
-    def insert_passing(self, row: list, year: int, week: int, team_id: int, passing: str, league: str, version: str) -> None:
-        game_id = self.get_game_id(year, week, team_id, version)
-        if game_id is None:
-            return
-
-        if passing == "PASSING":
-            self._add_into_passing(row, PASSING, game_id, team_id, year, "passing", league, version)
-        elif passing == "PASSING_DEPTH":
-            for depth in PASSING_DEPTH:
-                for area in PASSING_DEPTH[depth]:
-                    self._add_into_passing(row, PASSING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}", league, version)
-        else:
-            for pre in PASSING_PRESSURE:
-                self._add_into_passing(row, PASSING_PRESSURE[pre], game_id, team_id, year, pre.lower(), league, version)
-    
-
-
-    def insert_receiving(self, row: list, year: int, week: int, team: str, receiving: str, league: str, version: str) -> None:
-        team_id = self.get_team_id(team)
-        try:
-            game_id = self.get_game_id(year, week, team_id, version)
-        except:
-            print(f"Game ID not found for {team} ({team_id}) in {year} week {week}")
-            return
-
-        if receiving == "RECEIVING":
-            self._add_into_receiving(row, RECEIVING, game_id, team_id, year, "receiving", league)
-        elif receiving == "RECEIVING_DEPTH":
-            for depth in RECEIVING_DEPTH:
-                for area in RECEIVING_DEPTH[depth]:
-                    self._add_into_receiving(row, RECEIVING_DEPTH[depth][area], game_id, team_id, year, f"{depth.lower()}_{area.lower()}", league)
-        else:  # RECEIVING_SCHEME
-            for scheme in RECEIVING_SCHEME:
-                
-                self._add_into_receiving(row, RECEIVING_SCHEME[scheme], game_id, team_id, year, scheme.lower(), league)
     
 
 
     def insert_values(self, version: str, start_year: int = 2006, end_year: int = 2024):
         records_processed = 0
-        self.drop_table("PASSING")
-        self.create_table(CREATE_PASSING)
+        self.create_tables()
         
         start_time = time.time()
         for year in range(start_year, end_year + 1):
             for league in ["NFL"]: #, "NCAA"]:
                 for info in self.INFO:
                     csv_file = self.START_FILE.format(league=league, info=info, year=year)
+                    print(f"On file: {csv_file}")
 
                     if not os.path.exists(csv_file):
+                        print(f"File does not exist {csv_file}")
                         continue
 
                     with open(csv_file, "r") as c:
@@ -376,26 +315,60 @@ class DB():
                             week = int(row[0])
                             team_name = row[4]
                             team_id = self.get_team_id(team_name)
+                            game_id = self.get_game_id(year, week, team_id, version)
 
                             player_id = row[2]
                             player_name = row[1]
                             pos = row[3]
                             self.insert_player(player_id, player_name, pos)
                             
-                            
+                            args = {"game_id": game_id, "team_id": team_id, "year": year, "type": None, "league": league, "version": version, "key": None}
                             if info == "Passing":
-                                self.insert_passing(row, year, week, team_id, "PASSING", league, version)
+                                args["type"], args["key"] = "passing", "passing"
+                                self.add_into_db(row, PASSING, args)
+
                             elif info == "Passing_Depth":
-                                self.insert_passing(row, year, week, team_id, "PASSING_DEPTH", league, version)
+                                for depth in PASSING_DEPTH:
+                                    for area in PASSING_DEPTH[depth]:
+                                        args["type"], args["key"] = f"{depth.lower()}_{area.lower()}", "passing"
+                                        self.add_into_db(row, PASSING_DEPTH[depth][area], args)
+
                             elif info == "Passing_Pressure":
-                                self.insert_passing(row, year, week, team_id, "PASSING_PRESSURE", league, version)
+                                for pre in PASSING_PRESSURE:
+                                    args["type"], args["key"] = pre.lower(), "passing"
+                                    self.add_into_db(row, PASSING_PRESSURE[pre], args)
+
                             elif info == "Receiving":
-                                self.insert_receiving(row, year, week, team_id, "RECEIVING", league, version)
+                                args["type"], args["key"] = "receiving", "receiving"
+                                self.add_into_db(row, RECEIVING, args)
+
                             elif info == "Receiving_Depth":
-                                self.insert_receiving(row, year, week, team_id, "RECEIVING_DEPTH", league, version)
+                                for depth in RECEIVING_DEPTH:
+                                    for area in RECEIVING_DEPTH[depth]:
+                                        args["type"], args["key"] = f"{depth.lower()}_{area.lower()}", "receiving"
+                                        self.add_into_db(row, RECEIVING_DEPTH[depth][area], args)
+
                             elif info == "Receiving_Scheme":
-                                self.insert_receiving(row, year, week, team_id, "RECEIVING_SCHEME", league, version)
+                                for scheme in RECEIVING_SCHEME:
+                                    args["type"], args["key"] = scheme.lower(), "receiving"
+                                    self.add_into_db(row, RECEIVING_SCHEME[scheme], args)
+
+                            elif info == "Rushing":
+                                args["type"], args["key"] = "rushing", "rushing"
+                                self.add_into_db(row, RUSHING, args)
                             
+                            elif info == "Blocking":
+                                args["type"], args["key"] = "blocking", "blocking"
+                                self.add_into_db(row, BLOCKING, args)
+                            
+                            elif info == "Pass_Blocking": 
+                                args["type"], args["key"] = "pass_blocking", "pass_blocking"
+                                self.add_into_db(row, PASS_BLOCKING, args)
+                            
+                            elif info == "Run_Blocking":
+                                args["type"], args["key"] = "run_blocking", "run_blocking"
+                                self.add_into_db(row, RUN_BLOCKING, args)
+
                             records_processed += 1
                             
                             # Commit in batches
@@ -413,8 +386,4 @@ class DB():
 
 if __name__ == "__main__":
     db = DB()
-    # db.create_table(CREATE_PLAYERS)
-    # db.insert_teams()
-    db.insert_games()
-    db.drop_table("PASSING")
-    # db.insert_values("0.0")
+    db.insert_values('0.0')
