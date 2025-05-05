@@ -911,3 +911,94 @@ RUN_BLOCKING = {
     "zone_grades_run_block": 18,
     "zone_snap_counts_run_block": 20
 }
+
+
+
+PASS_RUSH = {
+    "batted_passes": 6,
+    "grades_pass_rush_defense": 7,
+    "hits": 10,
+    "hurries": 11,
+    "pass_rush_opp": 12,
+    "pass_rush_wins": 15,
+    "penalties": 16,
+    "sacks": 18,
+    "snap_counts_pass_play": 19,
+    "snap_counts_pass_rush": 20,
+    "total_pressures": 21,
+    "true_pass_set_batted_passes": 22,
+    "true_pass_set_grades_pass_rush_defense": 23,
+    "true_pass_set_hits": 24,
+    "true_pass_set_hurries": 25,
+    "true_pass_set_pass_rush_opp": 26,
+    "true_pass_set_pass_rush_wins": 29,
+    "true_pass_set_sacks": 31,
+    "true_pass_set_snap_counts_pass_play": 32,
+    "true_pass_set_snap_counts_pass_rush": 33,
+    "true_pass_set_total_pressures": 34
+}
+
+
+
+RUN_DEFENCE = {
+    "assists": 6,
+    "avg_depth_of_tackle": 7,
+    "forced_fumbles": 9,
+    "grades_run_defense": 15,
+    "grades_tackle": 16,
+    "missed_tackles": 18,
+    "penalties": 19,
+    "run_stop_opp": 20,
+    "stops": 23, 
+    "tackles": 24
+}
+
+
+
+COVERAGE = {
+    "avg_depth_of_target": 7,
+    "dropped_ints": 13,
+    "forced_incompletes": 14,
+    "grades_coverage_defense": 17,
+    "interceptions": 23,
+    "pass_break_ups": 27,
+    "receptions": 30,
+    "snap_counts_coverage": 31,
+    "targets": 35,
+    "touchdowns": 36,
+    "yards": 37,
+    "yards_after_catch": 38
+}
+
+
+
+COVERAGE_SCHEME = {
+    "MAN": {
+        "avg_depth_of_target": 10,
+        "dropped_ints": 15,
+        "forced_incompletes": 16,
+        "grades_coverage_defense": 18,
+        "interceptions": 19,
+        "pass_break_ups": 23,
+        "receptions": 25,
+        "snap_counts_coverage": 26,
+        "targets": 31,
+        "touchdowns": 32,
+        "yards": 33,
+        "yards_after_catch": 34
+    },
+    "ZONE": {
+        "avg_depth_of_target": 39,
+        "dropped_ints": 44,
+        "forced_incompletes": 45,
+        "grades_coverage_defense": 47,
+        "interceptions": 48,
+        "pass_break_ups": 52,
+        "receptions": 54,
+        "snap_counts_coverage": 55,
+        "targets": 60,
+        "touchdowns": 61,
+        "yards": 62,
+        "yards_after_catch": 63
+    }
+}

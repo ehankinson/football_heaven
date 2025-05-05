@@ -5,25 +5,9 @@ import sqlite3
 
 from tqdm import tqdm
 from constants import *
-from queries import GAME_DATA, TEAMS, CREATE_PASSING, CREATE_PLAYERS, CREATE_RECEIVING, CREATE_RUSHING, CREATE_BLOCKING, CREATE_PASS_BLOCKING, CREATE_RUN_BLOCKING, INSERT_START, PASSING_INSERT, RECEIVING_INSERT, RUSHING_INSERT, BLOCKING_INSERT, PASS_BLOCKING_INSERT, RUN_BLOCKING_INSERT
+from queries import GAME_DATA, TEAMS, INSERT_START, CREATE_TABLE, INSERT_TABLE
 
 PLAYER_ID = 2
-MAP = [
-    'passing',
-    'receiving',
-    'players',
-    'teams',
-    'game_data',
-]
-
-INSERT_TABLE = {
-    "passing": PASSING_INSERT,
-    "receiving": RECEIVING_INSERT,
-    "rushing": RUSHING_INSERT,
-    "blocking": BLOCKING_INSERT,
-    "pass_blocking": PASS_BLOCKING_INSERT,
-    "run_blocking": RUN_BLOCKING_INSERT
-}
 
 
 
@@ -43,10 +27,10 @@ class DB():
             "Blocking",
             "Pass_Blocking",
             "Run_Blocking",
-            # "Defense_Coverage",
-            # "Defense_Coverage_Scheme",
-            # "Defense_Pass_Rush",
-            # "Defense_Run_Defense"
+            "Coverage",
+            "Coverage_Scheme",
+            "Pass_Rush",
+            "Run_Defence"
         ]
         self.conn = sqlite3.connect("db/football.db")
         self.cursor = self.conn.cursor()
@@ -60,14 +44,8 @@ class DB():
         self.TABLES = {
             "TEAMS": self.insert_teams,
             "GAME_DATA": self.insert_games,
-            "PLAYERS": CREATE_PLAYERS,
-            "PASSING": CREATE_PASSING,
-            "RECEIVING": CREATE_RECEIVING,
-            "RUSHING": CREATE_RUSHING,
-            "BLOCKING": CREATE_BLOCKING,
-            "PASS_BLOCKING": CREATE_PASS_BLOCKING,
-            "RUN_BLOCKING": CREATE_RUN_BLOCKING
         }
+        self.TABLES.update(CREATE_TABLE)
 
 
 
@@ -265,13 +243,18 @@ class DB():
                     if "avg_depth_of_target" in key:
                         new_value = int(round(float(row[val]) * int(row[val - 2]), 0))
                         stats.append(new_value)
-                    elif "depth_of_target" in key:
+                    elif "depth_of_target" in ["depth_of_target", "avg_depth_of_tackle"]:
                         stats.append(float(row[val]))
                     else: 
                         stats.append(int(row[val]))
                 except Exception as e:
-                    print(key)
-                    print(row[val])
+                    print("\n")
+                    print("#################################")
+                    print("There was an error when inputing a value")
+                    print(f"The key: {key}")
+                    print(f"The value {row[val]}")
+                    print("#################################")
+                    print("\n")
                     raise f"There was an issue formatting {key} for val {row[val]}. ERROR: {e}"
         
         self.insert_query(insert_key, stats)
@@ -368,6 +351,23 @@ class DB():
                             elif info == "Run_Blocking":
                                 args["type"], args["key"] = "run_blocking", "run_blocking"
                                 self.add_into_db(row, RUN_BLOCKING, args)
+                            
+                            elif info == "Pass_Rush":
+                                args["type"], args["key"] = "pass_rush", "pass_rush"
+                                self.add_into_db(row, PASS_RUSH, args)
+
+                            elif info == "Run_Defence":
+                                args["type"], args["key"] = "run_defence", "run_defence"
+                                self.add_into_db(row, RUN_DEFENCE, args)
+                            
+                            elif info == "Coverage": 
+                                args["type"], args["key"] = "coverage", "coverage"
+                                self.add_into_db(row, COVERAGE, args)
+                                
+                            elif info == "Coverage_Scheme":
+                                for scheme in COVERAGE_SCHEME:
+                                    args["type"], args["key"] = scheme.lower(), "coverage"
+                                    self.add_into_db(row, COVERAGE_SCHEME[scheme], args)
 
                             records_processed += 1
                             
