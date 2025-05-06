@@ -15,7 +15,7 @@ PRIMARY KEY (Player_ID, GAME_ID, TEAM_ID, YEAR, LEAGUE, TYPE, VERSION)"""
 
 
 CREATE_PLAYERS = """
-    CREATE TABLE PLAYERS (
+    CREATE TABLE IF NOT EXISTS PLAYERS (
         Player_ID INT PRIMARY KEY,
         Player_Name VARCHAR(255),
         Player_Pos VARCHAR(64)
@@ -24,8 +24,8 @@ CREATE_PLAYERS = """
 
 
 
-TEAMS = """
-    CREATE TABLE TEAMS (
+CREATE_TEAMS = """
+    CREATE TABLE IF NOT EXISTS TEAMS (
         TEAM_ID INTEGER PRIMARY KEY AUTOINCREMENT,
         Team_Abbr VARCHAR(8),
         League VARCHAR(8),
@@ -37,8 +37,8 @@ TEAMS = """
 
 
 
-GAME_DATA = """
-    CREATE TABLE GAME_DATA (
+CREATE_GAME_DATA = """
+    CREATE TABLE IF NOT EXISTS GAME_DATA (
         GAME_ID INTEGER NOT NULL,
         Version VARCHAR(8) NOT NULL,
         Team_ID INT,
@@ -475,8 +475,8 @@ MAP = {
     'passing': CREATE_PASSING,
     'receiving': CREATE_RECEIVING,
     'players': CREATE_PLAYERS,
-    'teams': TEAMS,
-    'game_data': GAME_DATA,
+    'teams': CREATE_TEAMS,
+    'game_data': CREATE_GAME_DATA,
 }
 
 
@@ -574,6 +574,8 @@ def player_passing_game(start_week: int, end_week: int, start_year: int, end_yea
 
 
 CREATE_TABLE = {
+    "TEAM": CREATE_TEAMS,
+    "GAME_DATA": CREATE_GAME_DATA,
     "PLAYERS": CREATE_PLAYERS,
     "PASSING": CREATE_PASSING,
     "RECEIVING": CREATE_RECEIVING,
