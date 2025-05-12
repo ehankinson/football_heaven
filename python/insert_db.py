@@ -259,8 +259,6 @@ class Insert():
                             if records_processed % self.cache == 0:
                                 self.db.conn.commit()
                                 self.db.conn.execute("BEGIN TRANSACTION")
-                        
-                        print(f"The amount of rows to edited where {i}\n")
                         # Commit any remaining changes
                         self.db.conn.commit()
 

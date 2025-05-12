@@ -916,7 +916,7 @@ RUN_BLOCKING = {
 
 PASS_RUSH = {
     "batted_passes": 6,
-    "grades_pass_rush_defense": 7,
+    "grades_pass_rush_defense": 9,
     "hits": 10,
     "hurries": 11,
     "pass_rush_opp": 12,

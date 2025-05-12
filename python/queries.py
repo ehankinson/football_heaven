@@ -13,6 +13,10 @@ FOREIGN KEY (GAME_ID, TEAM_ID) REFERENCES GAME_DATA(Game_ID, Team_ID)
 PRIMARY KEY (Player_ID, GAME_ID, TEAM_ID, YEAR, LEAGUE, TYPE, VERSION)"""
 
 
+##########################################################################
+#                          CREATE QUERIES                                #
+##########################################################################
+
 
 CREATE_PLAYERS = """
     CREATE TABLE IF NOT EXISTS PLAYERS (
@@ -127,6 +131,7 @@ CREATE_RECEIVING = f"""
         {END}
     )
 """
+
 
 
 CREATE_RUSHING =f"""
@@ -246,8 +251,8 @@ CREATE_PASS_RUSH = f"""
 
 
 
-CREATE_RUN_DEFENCE = f"""
-    CREATE TABLE IF NOT EXISTS RUN_DEFENCE (
+CREATE_RUN_DEFENSE = f"""
+    CREATE TABLE IF NOT EXISTS RUN_DEFENSE (
         {START}
         assists INT,
         avg_depth_of_tackle INT,
@@ -283,6 +288,12 @@ CREATE_COVERAGE = f"""
         {END}
     )
 """
+
+
+
+##########################################################################
+#                          INSERT QUERIES                                #
+##########################################################################
 
 
 
@@ -369,8 +380,8 @@ PASS_RUSH_INSERT = """
 
 
 
-RUN_DEFENCE_INSERT = """
-    INSERT OR IGNORE INTO RUN_DEFENCE (
+RUN_DEFENSE_INSERT = """
+    INSERT OR IGNORE INTO RUN_DEFENSE (
         {start}, assists, avg_depth_of_tackle, forced_fumbles, grades_run_defense, grades_tackle,
         missed_tackles, penalties, run_stop_opp, stops, tackles
     )
@@ -390,7 +401,39 @@ COVERAGE_INSERT = """
 
 
 
-PASS_SUM = """
+##########################################################################
+#                             SUM QUERIES                                #
+##########################################################################
+
+
+
+PLAYER_SELECT = """
+    SELECT
+        PLAYERS.Player_Name,
+        {TABLE}.Year,
+        {TABLE}.Version,
+        TEAMS.Team_Abbr,
+        PLAYERS.Player_Pos,
+        COUNT(DISTINCT {TABLE}.Game_ID) as gp,
+        {SUM}
+    FROM {TABLE}
+"""
+
+
+
+TEAM_SELECT = """
+    SELECT
+        TEAMS.Team_Name,
+        {TABLE}.YEAR,
+        {TABLE}.VERSION,
+        COUNT(DISTINCT {TABLE}.Game_ID) as gp,
+        {SUM}
+    FROM {TABLE}
+"""
+
+
+
+PASSING_SUM = """
     SUM(PASSING.passing_snaps) as snaps,
     SUM(PASSING.dropbacks) as db,
     SUM(PASSING.completions) as cmp,
@@ -411,165 +454,178 @@ PASS_SUM = """
     SUM(PASSING.sacks) as sk,
     SUM(PASSING.scrambles) as scrm,
     SUM(PASSING.penalties) as pen,
-    ROUND(SUM(PASSING.grade_pass * PASSING.dropbacks) / NULLIF(SUM(PASSING.dropbacks), 0), 1) as grade_pass
+    ROUND(SUM(PASSING.grade_pass * PASSING.dropbacks) / NULLIF(SUM(PASSING.dropbacks), 0), 1) as grade_pass 
 """
 
 
 
-PASSING_SELECT = f"""
-    SELECT
-        PLAYERS.Player_Name,
-        PASSING.Year,
-        PASSING.Version,
-        TEAMS.Team_Abbr,
-        PLAYERS.Player_Pos,
-        COUNT(DISTINCT PASSING.Game_ID) as gp,
-        {PASS_SUM}
-    FROM PASSING
+RECEIVING_SUM = """
+    SUM(RECEIVING.wide_snaps) + SUM(RECEIVING.slot_snaps) + SUM(RECEIVING.inline_snaps) as snaps,
+    SUM(RECEIVING.wide_snaps) as ws,
+    SUM(RECEIVING.slot_snaps) as slt,
+    SUM(RECEIVING.inline_snaps) as ins,
+    SUM(RECEIVING.routes) as rts,
+    SUM(RECEIVING.targets) as tgt,
+    SUM(RECEIVING.receptions) as rec,
+    SUM(RECEIVING.yards) as yds,
+    SUM(RECEIVING.touchdowns) as td,
+    SUM(RECEIVING.interceptions) as int,
+    SUM(RECEIVING.first_downs) as "1d",
+    SUM(RECEIVING.drops) as drp,
+    SUM(RECEIVING.yards) - SUM(RECEIVING.yards_after_catch) as ybc,
+    SUM(RECEIVING.yards_after_catch) as yac,
+    SUM(RECEIVING.avoided_tackles) as at,
+    SUM(RECEIVING.fumbles) as fum,
+    SUM(RECEIVING.contested_targets) as ct,
+    SUM(RECEIVING.contested_reception) as cr,
+    SUM(RECEIVING.penalties) as pen,
+    ROUND(SUM(RECEIVING.grades_pass_route * RECEIVING.routes) / NULLIF(SUM(RECEIVING.routes), 0), 1) as grade_recv,
+    ROUND(SUM(RECEIVING.grades_hands_drop * RECEIVING.routes) / NULLIF(SUM(RECEIVING.routes), 0), 1) as grade_drp
 """
 
 
 
-TEAM_PASSING_SELECT = f"""
-    SELECT
-        TEAMS.Team_Name,
-        PASSING.Year,
-        COUNT(DISTINCT PASSING.Game_ID) as gp,
-        {PASS_SUM}
-    FROM PASSING
+RUSHING_SUM = """
+    SUM(RUSHING.run_play) as r_play,
+    SUM(RUSHING.attempts) as att,
+    SUM(RUSHING.yards) as yds,
+    SUM(RUSHING.touchdowns) as td,
+    SUM(RUSHING.fumbles) as fum,
+    SUM(RUSHING.first_downs) as "1d",
+    SUM(RUSHING.avoided_tackles) as avt,
+    SUM(RUSHING.explosive) as exp,
+    SUM(RUSHING.yards) - SUM(RUSHING.yards_after_contact) as ybc,
+    SUM(RUSHING.yards_after_contact) as yac,
+    SUM(RUSHING.breakaway_attempts) as baa,
+    SUM(RUSHING.breakaway_yards) as bay,
+    SUM(RUSHING.designed_yards) as dey,
+    SUM(RUSHING.gap_attempts) as g_att,
+    SUM(RUSHING.zone_attempts) as z_att, 
+    SUM(RUSHING.scramble) as scrm,
+    SUM(RUSHING.scramble_yards) as scrm_yds,
+    SUM(RUSHING.penalties) as pen,
+    ROUND(SUM(RUSHING.grades_run * RUSHING.attempts) / NULLIF(SUM(RUSHING.attempts), 0), 1) as grade_run,
+    ROUND(SUM(RUSHING.grades_hands_fumble * RUSHING.run_play) / NULLIF(SUM(RUSHING.run_play), 0), 1) as grade_fumble
 """
 
 
 
-RECEIVING_SELECT = f"""
-    SELECT
-        PLAYERS.Player_Name,
-        PLAYERS.Player_ID,
-        RECEIVING.Year,
-        TEAMS.Team_Name,
-        PLAYERS.Player_Pos,
-        COUNT(DISTINCT RECEIVING.Game_ID) as gp,
-        SUM(RECEIVING.wide_snaps) as ws,
-        SUM(RECEIVING.slot_snaps) as slt,
-        SUM(RECEIVING.inline_snaps) as ins,
-        SUM(RECEIVING.routes) as rts,
-        SUM(RECEIVING.targets) as tgt,
-        SUM(RECEIVING.receptions) as rec,
-        SUM(RECEIVING.yards) as yds,
-        SUM(RECEIVING.touchdowns) as td,
-        SUM(RECEIVING.interceptions) as int,
-        SUM(RECEIVING.first_downs) as "1d",
-        SUM(RECEIVING.drops) as drp,
-        SUM(RECEIVING.yards_after_catch) as yac,
-        SUM(RECEIVING.avoided_tackles) as at,
-        SUM(RECEIVING.fumbles) as fum,
-        SUM(RECEIVING.contested_targets) as ct,
-        SUM(RECEIVING.contested_reception) as cr,
-        SUM(RECEIVING.penalties) as pen
-    FROM RECEIVING
+BLOCKING_SUM = """
+    ROUND(SUM(BLOCKING.grades_pass_block * BLOCKING.snap_counts_pass_block) / NULLIF(SUM(BLOCKING.snap_counts_pass_block), 0), 1) as grade_pass_block,
+    ROUND(SUM(BLOCKING.grades_run_block * BLOCKING.snap_counts_run_block) / NULLIF(SUM(BLOCKING.snap_counts_run_block), 0), 1) as grade_run_block,
+    SUM(BLOCKING.penalties) as pen,
+    SUM(BLOCKING.snap_counts_ce) as s_ce,
+    SUM(BLOCKING.snap_counts_lg) as c_lg,
+    SUM(BLOCKING.snap_counts_lt) as s_lt,
+    SUM(BLOCKING.snap_counts_offense) as s_off,
+    SUM(BLOCKING.snap_counts_pass_block) as s_pbk,
+    SUM(BLOCKING.snap_counts_pass_play) as s_pas,
+    SUM(BLOCKING.snap_counts_rg) as s_rg,
+    SUM(BLOCKING.snap_counts_rt) as s_rt,
+    SUM(BLOCKING.snap_counts_run_block) as s_run,
+    SUM(BLOCKING.snap_counts_te) as s_te,
 """
 
 
 
-MAP = {
-    'passing': CREATE_PASSING,
-    'receiving': CREATE_RECEIVING,
-    'players': CREATE_PLAYERS,
-    'teams': CREATE_TEAMS,
-    'game_data': CREATE_GAME_DATA,
+PASS_BLOCKING_SUM = """
+    ROUND(SUM(PASS_BLOCKING.grades_pass_block * PASS_BLOCKING.snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.snap_counts_pass_play), 0), 1),
+    SUM(PASS_BLOCKING.hits_allowed),
+    SUM(PASS_BLOCKING.hurries_allowed),
+    SUM(PASS_BLOCKING.pressures_allowed),
+    SUM(PASS_BLOCKING.sacks_allowed),
+    SUM(PASS_BLOCKING.snap_counts_pass_play),
+    ROUND(SUM(PASS_BLOCKING.true_pass_set_grades_pass_block * PASS_BLOCKING.true_pass_set_snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play), 0), 1),
+    SUM(PASS_BLOCKING.true_pass_set_hits_allowed),
+    SUM(PASS_BLOCKING.true_pass_set_hurries_allowed),
+    SUM(PASS_BLOCKING.true_pass_set_pressures_allowed),
+    SUM(PASS_BLOCKING.true_pass_set_sacks_allowed),
+    SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play),
+"""
+
+
+
+RUN_BLOCKING_SUM = """
+    SUM(RUN_BLOCKING.gap_grades_run_block) as gap_grades_run_block,
+    SUM(RUN_BLOCKING.gap_snap_counts_run_block) as gap_snap_counts,
+    SUM(RUN_BLOCKING.grades_run_block) as grades_run_block,
+    SUM(RUN_BLOCKING.snap_counts_run_block) as snap_run_blcok,
+    SUM(RUN_BLOCKING.penalties) as pen,
+    SUM(RUN_BLOCKING.zone_grades_run_block) as grade_zone_run_block,
+    SUM(RUN_BLOCKING.zone_snap_counts_run_block) as zone_snap_counts,
+"""
+
+
+
+PASS_RUSH_SUM = """
+    SUM(PASS_RUSH.snap_counts_pass_play) as snap_pp,
+    SUM(PASS_RUSH.snap_counts_pass_rush) as snap_pr,
+    SUM(PASS_RUSH.hurries) as hur,
+    SUM(PASS_RUSH.hits) as hit,
+    SUM(PASS_RUSH.sacks) as sk,
+    SUM(PASS_RUSH.total_pressures) as pr,
+    SUM(PASS_RUSH.pass_rush_opp) as pass_rush,
+    SUM(PASS_RUSH.pass_rush_wins) as pass_win, 
+    SUM(PASS_RUSH.batted_passes) as bat,
+    SUM(PASS_RUSH.penalties) as pen,
+    ROUND(SUM(PASS_RUSH.grades_pass_rush_defense * PASS_RUSH.snap_counts_pass_rush) / NULLIF(SUM(PASS_RUSH.snap_counts_pass_rush), 0), 1) as rush,
+    SUM(PASS_RUSH.true_pass_set_snap_counts_pass_play) as t_snap_pp,
+    SUM(PASS_RUSH.true_pass_set_snap_counts_pass_rush) as t_snap_pr,
+    SUM(PASS_RUSH.true_pass_set_hurries) as t_hur,
+    SUM(PASS_RUSH.true_pass_set_hits) as t_hit,
+    SUM(PASS_RUSH.true_pass_set_sacks) as t_sk,
+    SUM(PASS_RUSH.true_pass_set_total_pressures) as t_pr,
+    SUM(PASS_RUSH.true_pass_set_pass_rush_opp) as t_pass_rush,
+    SUM(PASS_RUSH.true_pass_set_pass_rush_wins) as t_pass_win,
+    SUM(PASS_RUSH.true_pass_set_batted_passes) as t_bat,
+    ROUND(SUM(PASS_RUSH.true_pass_set_grades_pass_rush_defense * PASS_RUSH.true_pass_set_snap_counts_pass_rush) / NULLIF(SUM(PASS_RUSH.true_pass_set_snap_counts_pass_rush), 0), 1) as t_rush
+"""
+
+
+
+RUN_DEFENSE_SUM = """
+    SUM(RUN_DEFENSE.assists) as ast,
+    SUM(RUN_DEFENSE.avg_depth_of_tackle) as adot,
+    SUM(RUN_DEFENSE.forced_fumbles) as ff,
+    SUM(RUN_DEFENSE.grades_run_defense) 
+    SUM(RUN_DEFENSE.grades_tackle)
+    SUM(RUN_DEFENSE.missed_tackles) as mtk,
+    SUM(RUN_DEFENSE.penalties) as pen,
+    SUM(RUN_DEFENSE.run_stop_opp) as snaps,
+    SUM(RUN_DEFENSE.stops) as stp,
+    SUM(RUN_DEFENSE.tackles) as tkl,
+"""
+
+
+
+COVERAGE_SUM = """
+    SUM(COVERAGE.avg_depth_of_target) as adot,
+    SUM(COVERAGE.dropped_ints) dint,
+    SUM(COVERAGE.forced_incompletes) finc,
+    SUM(COVERAGE.grades_coverage_defense)
+    SUM(COVERAGE.interceptions) as int,
+    SUM(COVERAGE.pass_break_ups) as pbu,
+    SUM(COVERAGE.receptions) as rec,
+    SUM(COVERAGE.snap_counts_coverage) as snap,
+    SUM(COVERAGE.targets) as tgt,
+    SUM(COVERAGE.touchdowns) as td,
+    SUM(COVERAGE.yards) as yds,
+    SUM(COVERAGE.yards_after_catch) as yac
+"""
+
+
+
+SUM_TABLE = {
+    "passing": {"query": PASSING_SUM, "table": "PASSING"},
+    "rushing": {"query": RUSHING_SUM, "table": "RUSHING"},
+    "receiving": {"query": RECEIVING_SUM, "table": "RECEIVING"},
+    "blocking": {"query": BLOCKING_SUM, "table": "BLOCKING"},
+    "pass_blocking": {"query": PASS_BLOCKING_SUM, "table": "PASS_BLOCKING"},
+    "run_blocking": {"query": RUN_BLOCKING_SUM, "table": "RUN_BLOCKING"},
+    "pass_rush": {"query": PASS_RUSH_SUM, "table": "PASS_RUSH"},
+    "run_defense": {"query": RUN_DEFENSE_SUM, "table": "RUN_DEFENCE"},
+    "coverage": {"query": COVERAGE_SUM, "table": "COVERAGE"}
 }
-
-
-
-def generate_table(table_type: str) -> str:
-    return MAP[table_type]
-
-
-
-def get_players_passing(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, version: str, pos: list[str]) -> str:
-    return f"""
-        {PASSING_SELECT}
-        JOIN GAME_DATA on PASSING.Game_ID = GAME_DATA.Game_ID
-        JOIN PLAYERS on PASSING.Player_ID = PLAYERS.Player_ID
-        JOIN TEAMS on PASSING.Team_ID = TEAMS.Team_ID
-        WHERE Game_DATA.Week BETWEEN {start_week} and {end_week}
-        AND PASSING.Year BETWEEN {start_year} and {end_year}
-        AND PLAYERS.Player_Pos IN ({', '.join(f'"{p}"' for p in pos)})
-        AND PASSING.Type = "{start_type}"
-        AND PASSING.League = "{league}"
-        AND PASSING.VERSION = "{version}"
-        GROUP BY PASSING.Player_ID, PASSING.Year
-    """
-
-
-
-def get_team_passing(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, version: str) -> str:
-    return f"""
-        {TEAM_PASSING_SELECT}
-        JOIN GAME_DATA on PASSING.Game_ID = GAME_DATA.Game_ID
-        JOIN TEAMS on PASSING.Team_ID = TEAMS.Team_ID
-        WHERE Game_DATA.Week BETWEEN {start_week} and {end_week}
-        AND PASSING.Year BETWEEN {start_year} and {end_year}
-        AND PASSING.Type = "{start_type}"
-        AND PASSING.League = "{league}"
-        AND PASSING.VERSION = "{version}"
-        GROUP BY PASSING.Team_ID, PASSING.Year
-    """
-
-
-
-def get_players_receiving(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, version: str, pos: list[str]) -> str:
-    return f"""
-        {RECEIVING_SELECT}
-        JOIN GAME_DATA on RECEIVING.Game_ID = GAME_DATA.Game_ID
-        JOIN TEAMS on RECEIVING.Team_ID = TEAMS.Team_ID
-        JOIN PLAYERS on RECEIVING.Player_ID = PLAYERS.Player_ID
-        WHERE Game_DATA.Week BETWEEN {start_week} and {end_week}
-        AND RECEIVING.Year BETWEEN {start_year} and {end_year}
-        AND PLAYERS.Player_Pos IN ({', '.join(f'"{p}"' for p in pos)})
-        AND RECEIVING.Type = "{start_type}"
-        AND RECEIVING.League = "{league}"
-        AND RECEIVING.VERSION = "{version}"
-        GROUP BY RECEIVING.Player_ID, RECEIVING.Year
-    """
-
-
-
-def get_passing_game(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, version: str, team: str, opp: bool = False) -> str:
-    string = []
-    string.append(f"SELECT TEAMS.Team_ID, GAME_DATA.Game_ID, PASSING.Type, PASSING.Year, PASSING.League, PASSING.Version, GAME_DATA.Week, {PASS_SUM}")
-    string.append("FROM PASSING\n")
-    string.append("JOIN GAME_DATA on PASSING.Game_ID = GAME_DATA.Game_ID\n")
-    string.append("JOIN TEAMS on PASSING.Team_ID = TEAMS.Team_ID\n")
-    string.append(f"WHERE PASSING.Year BETWEEN {start_year} and {end_year}\n")
-    string.append(f"AND GAME_DATA.Week BETWEEN {start_week} and {end_week}\n")
-    string.append(f"AND PASSING.Type = '{start_type}'\n")
-    string.append(f"AND PASSING.League = '{league}'\n")
-    string.append(f"AND PASSING.VERSION = '{version}'\n")
-    if opp:
-        string.append(f"AND GAME_DATA.Opponent_ID = (SELECT TEAM_ID FROM TEAMS WHERE Team_Abbr = '{team}')\n")
-    else:
-        string.append(f"AND TEAMS.Team_Abbr = '{team}'\n")
-    string.append("GROUP BY GAME_DATA.Game_ID, TEAMS.Team_ID, PASSING.Year")
-    return ''.join(string)
-
-
-
-def player_passing_game(start_week: int, end_week: int, start_year: int, end_year: int, start_type: str, league: str, version: str, team: str) -> str:
-    string = []
-    string.append(f"SELECT PLAYERS.Player_ID, GAME_DATA.Game_ID, TEAMS.Team_ID, PASSING.Type, PASSING.Year, PASSING.League, PASSING.Version, GAME_DATA.Week, {PASS_SUM}")
-    string.append("FROM PASSING\n")
-    string.append("JOIN GAME_DATA on PASSING.Game_ID = GAME_DATA.Game_ID\n")
-    string.append("JOIN TEAMS on PASSING.Team_ID = TEAMS.Team_ID\n")
-    string.append("JOIN PLAYERS on PASSING.Player_ID = PLAYERS.Player_ID\n")
-    string.append(f"WHERE PASSING.Year BETWEEN {start_year} and {end_year}\n")
-    string.append(f"AND GAME_DATA.Week BETWEEN {start_week} and {end_week}\n")
-    string.append(f"AND PASSING.Type = '{start_type}'\n")
-    string.append(f"AND PASSING.League = '{league}'\n")
-    string.append(f"AND PASSING.VERSION = '{version}'\n")
-    string.append(f"AND TEAMS.Team_Abbr = '{team}'\n")
-    string.append("GROUP BY GAME_DATA.Game_ID, PLAYERS.Player_ID, PASSING.Year")
-    return ''.join(string)
 
 
 
@@ -584,7 +640,7 @@ CREATE_TABLE = {
     "PASS_BLOCKING": CREATE_PASS_BLOCKING,
     "RUN_BLOCKING": CREATE_RUN_BLOCKING,
     "PASS_RUSH": CREATE_PASS_RUSH,
-    "RUN_DEFENCE": CREATE_RUN_DEFENCE,
+    "RUN_DEFENSE": CREATE_RUN_DEFENSE,
     "COVERAGE": CREATE_COVERAGE
 }
 
@@ -598,6 +654,64 @@ INSERT_TABLE = {
     "pass_blocking": PASS_BLOCKING_INSERT,
     "run_blocking": RUN_BLOCKING_INSERT,
     "pass_rush": PASS_RUSH_INSERT,
-    "run_defence": RUN_DEFENCE_INSERT,
+    "run_defence": RUN_DEFENSE_INSERT,
     "coverage": COVERAGE_INSERT
 }
+
+
+
+def get_query(args: dict, _type: str, is_player: bool) -> str:
+    start_week, end_week, start_year, end_year, stat_type, league, version, pos, limit, team = args.values()
+    
+    query, table = SUM_TABLE[_type].values()
+    select = PLAYER_SELECT if is_player else TEAM_SELECT
+    select = select.format(SUM=query, TABLE=table)
+
+    conditions = []
+    select += f"JOIN GAME_DATA on {table}.Game_ID = GAME_DATA.Game_ID\n"
+    select += f"JOIN TEAMS on {table}.Team_ID = TEAMS.Team_ID\n"
+    select += (f"JOIN PLAYERS on {table}.Player_ID = PLAYERS.Player_ID\n")
+
+    if version is not None:
+        conditions.append(f"{table}.VERSION = {version}")
+    if start_year is not None:
+        conditions.append(f"{table}.YEAR >= {start_year}")
+    if end_year is not None:
+        conditions.append(f"{table}.YEAR <= {end_year}")
+    if start_week is not None:
+        conditions.append(f"GAME_DATA.WEEK >= {start_week}")
+    if end_week is not None:
+        conditions.append(f"GAME_DATA.WEEK <= {end_week}")
+    if stat_type is not None:
+        conditions.append(f"{table}.TYPE = '{stat_type}'")
+    if league is not None:
+        conditions.append(f"{table}.LEAGUE = '{league}'")
+    # if pos is not None:
+    #     conditions.append(f"PLAYERS.Pos IN [{','.join(f"'{p}'" for p in pos)}]")
+    if team is not None:
+        conditions.append(f"TEAMS.Team_Abbr = '{team}'")
+
+    if conditions:
+        select += "WHERE " + " \nAND ".join(conditions)
+    
+    key = f"{table}.Player_ID" if is_player else f"{table}.Team_ID"
+    select += f"\nGROUP BY {key}, {table}.Year"
+    # if limit is not None:
+    #     select += f"\nLIMIT {limit}"
+    return select
+
+
+
+if __name__ == "__main__":
+    start_week = 1
+    end_week = 18
+    start_year = 2006
+    end_year = 2024
+    stat_type = "rushing"
+    league = "NFL"
+    version = "0.0"
+    pos = None
+    limit = None
+    team = "IND"
+    args = {"start_week": start_week, "end_week": end_week, "start_year": start_year, "end_year": end_year, "stat_type": stat_type, "league": league, "version": version, "pos": pos, "limit": limit, "team": team}
+    get_query(args, "passing", False)
