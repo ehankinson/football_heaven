@@ -511,36 +511,35 @@ RUSHING_SUM = """
 
 
 BLOCKING_SUM = """
-    ROUND(SUM(BLOCKING.grades_pass_block * BLOCKING.snap_counts_pass_block) / NULLIF(SUM(BLOCKING.snap_counts_pass_block), 0), 1) as grade_pass_block,
-    ROUND(SUM(BLOCKING.grades_run_block * BLOCKING.snap_counts_run_block) / NULLIF(SUM(BLOCKING.snap_counts_run_block), 0), 1) as grade_run_block,
-    SUM(BLOCKING.penalties) as pen,
-    SUM(BLOCKING.snap_counts_ce) as s_ce,
-    SUM(BLOCKING.snap_counts_lg) as c_lg,
-    SUM(BLOCKING.snap_counts_lt) as s_lt,
     SUM(BLOCKING.snap_counts_offense) as s_off,
-    SUM(BLOCKING.snap_counts_pass_block) as s_pbk,
     SUM(BLOCKING.snap_counts_pass_play) as s_pas,
+    SUM(BLOCKING.snap_counts_run_block) as s_run,
+    SUM(BLOCKING.snap_counts_lt) as s_lt,
+    SUM(BLOCKING.snap_counts_lg) as c_lg,
+    SUM(BLOCKING.snap_counts_ce) as s_ce,
     SUM(BLOCKING.snap_counts_rg) as s_rg,
     SUM(BLOCKING.snap_counts_rt) as s_rt,
-    SUM(BLOCKING.snap_counts_run_block) as s_run,
     SUM(BLOCKING.snap_counts_te) as s_te,
+    SUM(BLOCKING.penalties) as pen,
+    ROUND(SUM(BLOCKING.grades_pass_block * BLOCKING.snap_counts_pass_block) / NULLIF(SUM(BLOCKING.snap_counts_pass_block), 0), 1) as grade_pass_block,
+    ROUND(SUM(BLOCKING.grades_run_block * BLOCKING.snap_counts_run_block) / NULLIF(SUM(BLOCKING.snap_counts_run_block), 0), 1) as grade_run_block
 """
 
 
 
 PASS_BLOCKING_SUM = """
-    ROUND(SUM(PASS_BLOCKING.grades_pass_block * PASS_BLOCKING.snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.snap_counts_pass_play), 0), 1),
-    SUM(PASS_BLOCKING.hits_allowed),
-    SUM(PASS_BLOCKING.hurries_allowed),
-    SUM(PASS_BLOCKING.pressures_allowed),
-    SUM(PASS_BLOCKING.sacks_allowed),
-    SUM(PASS_BLOCKING.snap_counts_pass_play),
-    ROUND(SUM(PASS_BLOCKING.true_pass_set_grades_pass_block * PASS_BLOCKING.true_pass_set_snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play), 0), 1),
-    SUM(PASS_BLOCKING.true_pass_set_hits_allowed),
-    SUM(PASS_BLOCKING.true_pass_set_hurries_allowed),
-    SUM(PASS_BLOCKING.true_pass_set_pressures_allowed),
-    SUM(PASS_BLOCKING.true_pass_set_sacks_allowed),
-    SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play),
+    SUM(PASS_BLOCKING.snap_counts_pass_play) as snap_pp,
+    SUM(PASS_BLOCKING.hurries_allowed) as hur,
+    SUM(PASS_BLOCKING.hits_allowed) as hit,
+    SUM(PASS_BLOCKING.sacks_allowed) as sk,
+    SUM(PASS_BLOCKING.pressures_allowed) as pr,
+    ROUND(SUM(PASS_BLOCKING.grades_pass_block * PASS_BLOCKING.snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.snap_counts_pass_play), 0), 1) as grade_pass_block,
+    SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play) as t_snap_pp,
+    SUM(PASS_BLOCKING.true_pass_set_hurries_allowed) as t_hur,
+    SUM(PASS_BLOCKING.true_pass_set_hits_allowed) as t_hit,
+    SUM(PASS_BLOCKING.true_pass_set_sacks_allowed) as t_sk,
+    SUM(PASS_BLOCKING.true_pass_set_pressures_allowed) as t_pr,
+    ROUND(SUM(PASS_BLOCKING.true_pass_set_grades_pass_block * PASS_BLOCKING.true_pass_set_snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play), 0), 1) as t_grade_pass_block
 """
 
 
