@@ -22,7 +22,9 @@ class GetStats():
             "rushing": ["Snaps", "Att", "Yds", "TD", "Fum", "1D", "Avd", "Exp", "Ybc", "Yac", "b_att", "b_yds", "des_yds", "gap_att", "zone_att", "scrm", "scrm_yds", "pen", "RUN", "FUM", "FP", "SPRS"],
             "blocking": ["Snaps", "P_SNAPS", "R_SNAPS", "LT_SNAPS", "LG_SNAPS", "CE_SNAPS", "RG_SNAPS", "RT_SNAPS", "TE_SNAPS", "PEN", "PASS_BLOCK", "RUN_BLOCK", "FP", "SPRS"],
             "pass_blocking": ["Snaps", "HUR", "HIT", "SK", "PR", "PASS_BLOCK", "T_Snaps", "T_HUR", "T_HIT", "T_SK", "T_PR", "T_PASS_BLOCK", "FP", "SPRS"],
-            "pass_rush": ["Snaps_pp", "Snaps_pr", "HUR", "HIT", "SK", "PR", "PASS_RUSH", "WIN", "BAT", "PEN", "RUSH", "T_Snaps_pp", "T_Snaps_pr", "T_HUR", "T_HIT", "T_SK", "T_PR", "T_PASS_RUSH", "T_WIN", "T_BAT", "T_RUSH", "FP", "SPRS"]
+            "run_blocking": ["Snaps", "GAP_SNAPS", "ZONE_SNAPS", "PEN", "RUN_BLOCK", "GAP_GRADES", "ZONE_GRADES", "FP", "SPRS"],
+            "pass_rush": ["Snaps_pp", "Snaps_pr", "HUR", "HIT", "SK", "PR", "PASS_RUSH", "WIN", "BAT", "PEN", "RUSH", "T_Snaps_pp", "T_Snaps_pr", "T_HUR", "T_HIT", "T_SK", "T_PR", "T_PASS_RUSH", "T_WIN", "T_BAT", "T_RUSH", "FP", "SPRS"],
+            "run_defense": ["Snaps", "Combo", "Tackles", "Assists", "Stops", "Adot", "Missed Tackles", "FF", "PEN", "RUN_DEF", "TACK", "FP", "SPRS"]
         }
         self.max_key = {
             "passing": "DB",
@@ -30,7 +32,9 @@ class GetStats():
             "rushing": "Att",
             "blocking": "Snaps",
             "pass_blocking": "Snaps",
-            "pass_rush": "Snaps_pr"
+            "run_blocking": "Snaps",
+            "pass_rush": "Snaps_pr",
+            "run_defense": "Snaps"
         }
             
             
@@ -79,6 +83,15 @@ class GetStats():
                     results[headers.index("T_PASS_BLOCK")] = 0
 
                 return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.4 + results[headers.index("PASS_BLOCK")] * 0.325 + results[headers.index("T_PASS_BLOCK")] * 0.275, 3)
+            case "run_blocking":
+                gap_pct = results[headers.index("GAP_SNAPS")] / results[headers.index("Snaps")]
+                if results[headers.index("GAP_GRADES")] is None:
+                    results[headers.index("GAP_GRADES")] = 0
+
+                if results[headers.index("ZONE_GRADES")] is None:
+                    results[headers.index("ZONE_GRADES")] = 0
+
+                return round(results[headers.index("GAP_GRADES")] * gap_pct + results[headers.index("ZONE_GRADES")] * (1 - gap_pct), 3)
             case "pass_rush":
                 if results[headers.index("T_RUSH")] is None:
                     results[headers.index("T_RUSH")] = 0
@@ -107,6 +120,7 @@ class GetStats():
 
     def season_stats(self, args: dict, _type: str, is_player: bool, display: bool, order: bool):
         query = get_query(args, _type, is_player)
+        print(query)
         results = self.db.call_query(query)
 
         if not display:
@@ -149,7 +163,7 @@ if __name__ == "__main__":
     end_week = 18
     start_year = 2006
     end_year = 2024
-    stat_type = "pass_blocking"
+    stat_type = "run_defense"
     league = "NFL"
     version = "0.0"
     pos = ["QB"]
@@ -158,5 +172,5 @@ if __name__ == "__main__":
     _type = stat_type
     stats = GetStats(db)
 
-    stats.season_stats(args, _type, TEAM, DISPLAY, ASC)
+    stats.season_stats(args, _type, TEAM, DISPLAY, DESC)
     db.kill()

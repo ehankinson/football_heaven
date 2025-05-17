@@ -10,6 +10,8 @@ class Database():
         self.cursor.execute("PRAGMA journal_mode = MEMORY")
         self.cursor.execute("PRAGMA temp_store = MEMORY")
         self.cursor.execute(f"PRAGMA cache_size = {100_000}")
+        # Set maximum file size to 2GB (assuming 4KB page size)
+        self.cursor.execute("PRAGMA max_page_count = 524288")  # 2GB = 2 * 1024 * 1024 * 1024 / 4096
 
 
 

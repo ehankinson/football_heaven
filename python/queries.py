@@ -545,13 +545,13 @@ PASS_BLOCKING_SUM = """
 
 
 RUN_BLOCKING_SUM = """
-    SUM(RUN_BLOCKING.gap_grades_run_block) as gap_grades_run_block,
+    SUM(RUN_BLOCKING.snap_counts_run_block) as snap_run_block,
     SUM(RUN_BLOCKING.gap_snap_counts_run_block) as gap_snap_counts,
-    SUM(RUN_BLOCKING.grades_run_block) as grades_run_block,
-    SUM(RUN_BLOCKING.snap_counts_run_block) as snap_run_blcok,
-    SUM(RUN_BLOCKING.penalties) as pen,
-    SUM(RUN_BLOCKING.zone_grades_run_block) as grade_zone_run_block,
     SUM(RUN_BLOCKING.zone_snap_counts_run_block) as zone_snap_counts,
+    SUM(RUN_BLOCKING.penalties) as pen,
+    ROUND(SUM(RUN_BLOCKING.grades_run_block * RUN_BLOCKING.snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.snap_counts_run_block), 0), 1) as grades_run_block,
+    ROUND(SUM(RUN_BLOCKING.gap_grades_run_block * RUN_BLOCKING.gap_snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.gap_snap_counts_run_block), 0), 1) as gap_grades_run_block,
+    ROUND(SUM(RUN_BLOCKING.zone_grades_run_block * RUN_BLOCKING.zone_snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.zone_snap_counts_run_block), 0), 1) as grade_zone_run_block
 """
 
 
@@ -583,16 +583,17 @@ PASS_RUSH_SUM = """
 
 
 RUN_DEFENSE_SUM = """
-    SUM(RUN_DEFENSE.assists) as ast,
-    SUM(RUN_DEFENSE.avg_depth_of_tackle) as adot,
-    SUM(RUN_DEFENSE.forced_fumbles) as ff,
-    SUM(RUN_DEFENSE.grades_run_defense) 
-    SUM(RUN_DEFENSE.grades_tackle)
-    SUM(RUN_DEFENSE.missed_tackles) as mtk,
-    SUM(RUN_DEFENSE.penalties) as pen,
     SUM(RUN_DEFENSE.run_stop_opp) as snaps,
-    SUM(RUN_DEFENSE.stops) as stp,
+    SUM(RUN_DEFENSE.tackles) + SUM(RUN_DEFENSE.assists) as combo,
     SUM(RUN_DEFENSE.tackles) as tkl,
+    SUM(RUN_DEFENSE.assists) as ast,
+    SUM(RUN_DEFENSE.stops) as stp,
+    SUM(RUN_DEFENSE.avg_depth_of_tackle) as adot,
+    SUM(RUN_DEFENSE.missed_tackles) as mtk,
+    SUM(RUN_DEFENSE.forced_fumbles) as ff,
+    SUM(RUN_DEFENSE.penalties) as pen,
+    ROUND(SUM(RUN_DEFENSE.grades_run_defense * RUN_DEFENSE.run_stop_opp) / NULLIF(SUM(RUN_DEFENSE.run_stop_opp), 0), 1) as grade_run_defense,
+    ROUND(SUM(RUN_DEFENSE.grades_tackle * RUN_DEFENSE.tackles) / NULLIF(SUM(RUN_DEFENSE.tackles), 0), 1) as grade_tackle
 """
 
 
@@ -622,7 +623,7 @@ SUM_TABLE = {
     "pass_blocking": {"query": PASS_BLOCKING_SUM, "table": "PASS_BLOCKING"},
     "run_blocking": {"query": RUN_BLOCKING_SUM, "table": "RUN_BLOCKING"},
     "pass_rush": {"query": PASS_RUSH_SUM, "table": "PASS_RUSH"},
-    "run_defense": {"query": RUN_DEFENSE_SUM, "table": "RUN_DEFENCE"},
+    "run_defense": {"query": RUN_DEFENSE_SUM, "table": "RUN_DEFENSE"},
     "coverage": {"query": COVERAGE_SUM, "table": "COVERAGE"}
 }
 
@@ -653,7 +654,7 @@ INSERT_TABLE = {
     "pass_blocking": PASS_BLOCKING_INSERT,
     "run_blocking": RUN_BLOCKING_INSERT,
     "pass_rush": PASS_RUSH_INSERT,
-    "run_defence": RUN_DEFENSE_INSERT,
+    "run_defense": RUN_DEFENSE_INSERT,
     "coverage": COVERAGE_INSERT
 }
 
