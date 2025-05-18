@@ -421,11 +421,39 @@ PLAYER_SELECT = """
 
 
 
+SINGLE_PLAYER_SELECT = """
+    SELECT
+        PLAYERS.Player_Name,
+        {TABLE}.Year,
+        {TABLE}.Version,
+        TEAMS.Team_Abbr,
+        PLAYERS.Player_Pos,
+        GAME_DATA.Week,
+        COUNT(DISTINCT {TABLE}.Game_ID) as gp,
+        {SUM}
+    FROM {TABLE}
+"""
+
+
+
 TEAM_SELECT = """
     SELECT
         TEAMS.Team_Name,
         {TABLE}.YEAR,
         {TABLE}.VERSION,
+        COUNT(DISTINCT {TABLE}.Game_ID) as gp,
+        {SUM}
+    FROM {TABLE}
+"""
+
+
+
+SINGLE_TEAM_SELECT = """
+    SELECT
+        TEAMS.Team_Name,
+        {TABLE}.YEAR,
+        {TABLE}.VERSION,
+        GAME_DATA.Week,
         COUNT(DISTINCT {TABLE}.Game_ID) as gp,
         {SUM}
     FROM {TABLE}
@@ -440,7 +468,7 @@ PASSING_SUM = """
     SUM(PASSING.aimed_passes) as aim,
     SUM(PASSING.attempts) as att,
     SUM(PASSING.yards) as yds,
-    ROUND(CAST(SUM(PASSING.avg_depth_of_target) AS FLOAT) / NULLIF(SUM(PASSING.attempts), 0), 5) as adot,
+    ROUND(CAST(SUM(PASSING.avg_depth_of_target) AS FLOAT) / NULLIF(SUM(PASSING.attempts), 0), 1) as adot,
     SUM(PASSING.touchdowns) as td,
     SUM(PASSING.interceptions) as int,
     SUM(PASSING.first_downs) as "1d",
@@ -588,7 +616,7 @@ RUN_DEFENSE_SUM = """
     SUM(RUN_DEFENSE.tackles) as tkl,
     SUM(RUN_DEFENSE.assists) as ast,
     SUM(RUN_DEFENSE.stops) as stp,
-    SUM(RUN_DEFENSE.avg_depth_of_tackle) as adot,
+    ROUND(SUM(RUN_DEFENSE.avg_depth_of_tackle) / NULLIF(SUM(RUN_DEFENSE.tackles), 0), 1) as adot,
     SUM(RUN_DEFENSE.missed_tackles) as mtk,
     SUM(RUN_DEFENSE.forced_fumbles) as ff,
     SUM(RUN_DEFENSE.penalties) as pen,
@@ -599,18 +627,19 @@ RUN_DEFENSE_SUM = """
 
 
 COVERAGE_SUM = """
-    SUM(COVERAGE.avg_depth_of_target) as adot,
-    SUM(COVERAGE.dropped_ints) dint,
-    SUM(COVERAGE.forced_incompletes) finc,
-    SUM(COVERAGE.grades_coverage_defense)
-    SUM(COVERAGE.interceptions) as int,
-    SUM(COVERAGE.pass_break_ups) as pbu,
-    SUM(COVERAGE.receptions) as rec,
     SUM(COVERAGE.snap_counts_coverage) as snap,
     SUM(COVERAGE.targets) as tgt,
-    SUM(COVERAGE.touchdowns) as td,
+    SUM(COVERAGE.receptions) as rec,
     SUM(COVERAGE.yards) as yds,
-    SUM(COVERAGE.yards_after_catch) as yac
+    SUM(COVERAGE.touchdowns) as td,
+    SUM(COVERAGE.interceptions) as int,
+    SUM(COVERAGE.avg_depth_of_target) as adot,
+    SUM(COVERAGE.yards) - SUM(COVERAGE.yards_after_catch) as ybc,
+    SUM(COVERAGE.yards_after_catch) as yac,
+    SUM(COVERAGE.pass_break_ups) as pbu,
+    SUM(COVERAGE.forced_incompletes) finc,
+    SUM(COVERAGE.dropped_ints) dint,
+    ROUND(SUM(COVERAGE.grades_coverage_defense * COVERAGE.snap_counts_coverage) / NULLIF(SUM(COVERAGE.snap_counts_coverage), 0), 1) as grade_cov
 """
 
 
@@ -660,7 +689,7 @@ INSERT_TABLE = {
 
 
 
-def get_query(args: dict, _type: str, is_player: bool) -> str:
+def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False) -> str:
     start_week, end_week, start_year, end_year, stat_type, league, version, pos, limit, team = args.values()
     
     query, table = SUM_TABLE[_type].values()
@@ -696,8 +725,9 @@ def get_query(args: dict, _type: str, is_player: bool) -> str:
     
     key = f"{table}.Player_ID" if is_player else f"{table}.Team_ID"
     select += f"\nGROUP BY {key}, {table}.Year"
-    # if limit is not None:
-    #     select += f"\nLIMIT {limit}"
+    if by_game:
+        select += f", {table}.Game_ID"
+
     return select
 
 

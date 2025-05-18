@@ -940,7 +940,7 @@ PASS_RUSH = {
 
 
 
-RUN_DEFENCE = {
+RUN_DEFENSE = {
     "assists": 6,
     "avg_depth_of_tackle": 7,
     "forced_fumbles": 9,

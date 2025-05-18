@@ -1,16 +1,20 @@
 from typing import List
 
-def lengthOfLongestSubstring(s: str) -> int:
-    max_length = 0
-    for i in range(len(s)):
-        letters = set()
-        for j in range(i, len(s)):
-            if s[j] in letters:
-                break
-            letters.add(s[j])
-        max_length = max(max_length, len(letters))
-    return max_length
+def sortColors(nums: List[int]) -> None:
+    l = 0
+    while l < len(nums):
+        min_val = nums[l]
+        min_index = l
+        for i in range(l, len(nums)):
+            num = nums[i]
+            if num < min_val:
+                min_val = num
+                min_index = i
+        nums[min_index] = nums[l]
+        nums[l] = min_val
+        l += 1                
 
 
-s = "xbawtvebluuagttbeqbihnlucpmg"
-print(lengthOfLongestSubstring(s))
+colours = [2,0,2,1,1,0]
+sortColors(colours)
+print(colours)

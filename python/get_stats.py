@@ -10,6 +10,7 @@ TEAM = False
 DESC = True
 PLAYER = True
 DISPLAY = True
+PER_GAME = True
 
 class GetStats():
 
@@ -24,7 +25,8 @@ class GetStats():
             "pass_blocking": ["Snaps", "HUR", "HIT", "SK", "PR", "PASS_BLOCK", "T_Snaps", "T_HUR", "T_HIT", "T_SK", "T_PR", "T_PASS_BLOCK", "FP", "SPRS"],
             "run_blocking": ["Snaps", "GAP_SNAPS", "ZONE_SNAPS", "PEN", "RUN_BLOCK", "GAP_GRADES", "ZONE_GRADES", "FP", "SPRS"],
             "pass_rush": ["Snaps_pp", "Snaps_pr", "HUR", "HIT", "SK", "PR", "PASS_RUSH", "WIN", "BAT", "PEN", "RUSH", "T_Snaps_pp", "T_Snaps_pr", "T_HUR", "T_HIT", "T_SK", "T_PR", "T_PASS_RUSH", "T_WIN", "T_BAT", "T_RUSH", "FP", "SPRS"],
-            "run_defense": ["Snaps", "Combo", "Tackles", "Assists", "Stops", "Adot", "Missed Tackles", "FF", "PEN", "RUN_DEF", "TACK", "FP", "SPRS"]
+            "run_defense": ["Snaps", "Combo", "Tackles", "Assists", "Stops", "Adot", "Missed Tackles", "FF", "PEN", "RUN_DEF", "TACK", "FP", "SPRS"],
+            "coverage": ["Snaps", "TGT", "REC", "YDS", "TD", "INT", "ADOT", "YBC", "YAC", "PBU", "FI", "D_INT", "COV", "FP", "SPRS"] 
         }
         self.max_key = {
             "passing": "DB",
@@ -34,7 +36,8 @@ class GetStats():
             "pass_blocking": "Snaps",
             "run_blocking": "Snaps",
             "pass_rush": "Snaps_pr",
-            "run_defense": "Snaps"
+            "run_defense": "Snaps",
+            "coverage": "Snaps"
         }
             
             
@@ -53,6 +56,10 @@ class GetStats():
                 stats = {"HUR": -0.25, "HIT": -0.3125, "SK": -0.375, "PR": -0.1875, "T_HUR": -0.5, "T_HIT": -0.625, "T_SK": -0.75, "T_PR": -0.375}
             case "pass_rush":
                 stats = {"HUR": 0.25, "HIT": 0.3125, "SK": 0.375, "PR": 0.1875, "WIN": 0.4375, "PEN": -3, "T_HUR": 0.5, "T_HIT": 0.625, "T_SK": 0.75, "T_PR": 0.375, "T_WIN": 0.875}
+            case "run_defense":
+                stats = {"Tackles": 1.25, "Assists": 0.75, "Stops": 2.25, "Missed Tackles": -1, "FF": 3, "PEN": -3},
+            case "coverage":
+                stats = {"REC": -0.5, "TD": -6, "INT": 6, "YBC": -0.0875, "YAC": -0.1625, "PBU": 3, "FI": 2.5, "D_INT": 1.5}
 
         if stats is not None:
             for stat, mul in stats.items():
@@ -96,7 +103,10 @@ class GetStats():
                 if results[headers.index("T_RUSH")] is None:
                     results[headers.index("T_RUSH")] = 0
                 return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.4 + results[headers.index("T_RUSH")] * 0.25 + results[headers.index("RUSH")] * 0.25, 3)
-            
+            case "run_defense":
+                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.3 + results[headers.index("RUN_DEF")] * 0.35 + results[headers.index("TACK")] * 0.35, 3)
+            case "coverage":
+                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.35 + results[headers.index("COV")] * 0.65, 3)
 
 
 
@@ -118,9 +128,8 @@ class GetStats():
 
 
 
-    def season_stats(self, args: dict, _type: str, is_player: bool, display: bool, order: bool):
-        query = get_query(args, _type, is_player)
-        print(query)
+    def season_stats(self, args: dict, _type: str, is_player: bool, display: bool, order: bool, by_game: bool = False):
+        query = get_query(args, _type, is_player, by_game)
         results = self.db.call_query(query)
 
         if not display:
@@ -157,13 +166,13 @@ class GetStats():
 
 if __name__ == "__main__":
     db = Database()
-    team = None
+    team = "CAR"
     year = 2006
     start_week = 1
-    end_week = 18
-    start_year = 2006
+    end_week = 32
+    start_year = 2024
     end_year = 2024
-    stat_type = "run_defense"
+    stat_type = "passing"
     league = "NFL"
     version = "0.0"
     pos = ["QB"]
@@ -172,5 +181,5 @@ if __name__ == "__main__":
     _type = stat_type
     stats = GetStats(db)
 
-    stats.season_stats(args, _type, TEAM, DISPLAY, DESC)
+    stats.season_stats(args, _type, TEAM, DISPLAY, DESC, PER_GAME)
     db.kill()

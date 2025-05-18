@@ -30,7 +30,7 @@ class Insert():
             "Coverage",
             "Coverage_Scheme",
             "Pass_Rush",
-            "Run_Defence"
+            "Run_Defense"
         ]
         self.TABLES = CREATE_TABLE
 
@@ -240,9 +240,9 @@ class Insert():
                                 args["type"], args["key"] = "pass_rush", "pass_rush"
                                 self.add_into_db(row, PASS_RUSH, args)
 
-                            elif info == "Run_Defence":
-                                args["type"], args["key"] = "run_defence", "run_defence"
-                                self.add_into_db(row, RUN_DEFENCE, args)
+                            elif info == "Run_Defense":
+                                args["type"], args["key"] = "run_defense", "run_defense"
+                                self.add_into_db(row, RUN_DEFENSE, args)
                             
                             elif info == "Coverage": 
                                 args["type"], args["key"] = "coverage", "coverage"
