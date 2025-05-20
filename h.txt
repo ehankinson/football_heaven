@@ -1,0 +1,16 @@
+"SELECT 
+    TEAMS.Team_Name, 
+    GAME_DATA.Week, 
+    SUM(PASSING.completions) as completions, 
+    SUM(PASSING.attempts) as attempts, 
+    SUM(PASSING.yards) as yards, 
+    SUM(PASSING.touchdowns) as TD, 
+    SUM(PASSING.interceptions) as INT 
+FROM PASSING 
+JOIN GAME_DATA ON PASSING.GAME_ID = GAME_DATA.GAME_ID 
+JOIN TEAMS ON PASSING.TEAM_ID = TEAMS.TEAM_ID 
+WHERE PASSING.YEAR = 2024 
+AND GAME_DATA.Opponent_ID = (SELECT Team_ID FROM TEAMS WHERE Team_Abbr = 'CAR' LIMIT 1) 
+AND PASSING.TYPE = 'passing' 
+GROUP BY PASSING.GAME_ID 
+ORDER BY GAME_DATA.Week;"

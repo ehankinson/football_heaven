@@ -462,185 +462,235 @@ SINGLE_TEAM_SELECT = """
 
 
 PASSING_SUM = """
-    SUM(PASSING.passing_snaps) as snaps,
-    SUM(PASSING.dropbacks) as db,
-    SUM(PASSING.completions) as cmp,
-    SUM(PASSING.aimed_passes) as aim,
-    SUM(PASSING.attempts) as att,
-    SUM(PASSING.yards) as yds,
-    ROUND(CAST(SUM(PASSING.avg_depth_of_target) AS FLOAT) / NULLIF(SUM(PASSING.attempts), 0), 1) as adot,
-    SUM(PASSING.touchdowns) as td,
-    SUM(PASSING.interceptions) as int,
-    SUM(PASSING.first_downs) as "1d",
-    SUM(PASSING.big_time_throws) as btt,
-    SUM(PASSING.turnover_worthy_plays) as twp,
-    SUM(PASSING.drops) as drp,
-    SUM(PASSING.bats) as bat,
-    SUM(PASSING.hit_as_threw) as hat,
-    SUM(PASSING.thrown_aways) as ta,
-    SUM(PASSING.spikes) as spk,
-    SUM(PASSING.sacks) as sk,
-    SUM(PASSING.scrambles) as scrm,
-    SUM(PASSING.penalties) as pen,
-    ROUND(SUM(PASSING.grade_pass * PASSING.dropbacks) / NULLIF(SUM(PASSING.dropbacks), 0), 1) as grade_pass 
+    SUM(PASSING.passing_snaps),
+    SUM(PASSING.dropbacks),
+    SUM(PASSING.completions),
+    SUM(PASSING.aimed_passes),
+    SUM(PASSING.attempts),
+    SUM(PASSING.yards),
+    ROUND(CAST(SUM(PASSING.avg_depth_of_target) AS FLOAT) / NULLIF(SUM(PASSING.attempts), 0), 1),
+    SUM(PASSING.touchdowns),
+    SUM(PASSING.interceptions),
+    SUM(PASSING.first_downs),
+    SUM(PASSING.big_time_throws),
+    SUM(PASSING.turnover_worthy_plays),
+    SUM(PASSING.drops),
+    SUM(PASSING.bats),
+    SUM(PASSING.hit_as_threw),
+    SUM(PASSING.thrown_aways),
+    SUM(PASSING.spikes),
+    SUM(PASSING.sacks),
+    SUM(PASSING.scrambles),
+    SUM(PASSING.penalties),
+    ROUND(SUM(PASSING.grade_pass * PASSING.dropbacks) / NULLIF(SUM(PASSING.dropbacks), 0), 1)
 """
 
 
 
 RECEIVING_SUM = """
-    SUM(RECEIVING.wide_snaps) + SUM(RECEIVING.slot_snaps) + SUM(RECEIVING.inline_snaps) as snaps,
-    SUM(RECEIVING.wide_snaps) as ws,
-    SUM(RECEIVING.slot_snaps) as slt,
-    SUM(RECEIVING.inline_snaps) as ins,
-    SUM(RECEIVING.routes) as rts,
-    SUM(RECEIVING.targets) as tgt,
-    SUM(RECEIVING.receptions) as rec,
-    SUM(RECEIVING.yards) as yds,
-    SUM(RECEIVING.touchdowns) as td,
-    SUM(RECEIVING.interceptions) as int,
-    SUM(RECEIVING.first_downs) as "1d",
-    SUM(RECEIVING.drops) as drp,
-    SUM(RECEIVING.yards) - SUM(RECEIVING.yards_after_catch) as ybc,
-    SUM(RECEIVING.yards_after_catch) as yac,
-    SUM(RECEIVING.avoided_tackles) as at,
-    SUM(RECEIVING.fumbles) as fum,
-    SUM(RECEIVING.contested_targets) as ct,
-    SUM(RECEIVING.contested_reception) as cr,
-    SUM(RECEIVING.penalties) as pen,
-    ROUND(SUM(RECEIVING.grades_pass_route * RECEIVING.routes) / NULLIF(SUM(RECEIVING.routes), 0), 1) as grade_recv,
-    ROUND(SUM(RECEIVING.grades_hands_drop * RECEIVING.routes) / NULLIF(SUM(RECEIVING.routes), 0), 1) as grade_drp
+    SUM(RECEIVING.wide_snaps) + SUM(RECEIVING.slot_snaps) + SUM(RECEIVING.inline_snaps),
+    SUM(RECEIVING.wide_snaps),
+    SUM(RECEIVING.slot_snaps),
+    SUM(RECEIVING.inline_snaps),
+    SUM(RECEIVING.routes),
+    SUM(RECEIVING.targets),
+    SUM(RECEIVING.receptions),
+    SUM(RECEIVING.yards),
+    SUM(RECEIVING.touchdowns),
+    SUM(RECEIVING.interceptions),
+    SUM(RECEIVING.first_downs),
+    SUM(RECEIVING.drops),
+    SUM(RECEIVING.yards) - SUM(RECEIVING.yards_after_catch),
+    SUM(RECEIVING.yards_after_catch),
+    SUM(RECEIVING.avoided_tackles),
+    SUM(RECEIVING.fumbles),
+    SUM(RECEIVING.contested_targets),
+    SUM(RECEIVING.contested_reception),
+    SUM(RECEIVING.penalties),
+    ROUND(SUM(RECEIVING.grades_pass_route * RECEIVING.routes) / NULLIF(SUM(RECEIVING.routes), 0), 1),
+    ROUND(SUM(RECEIVING.grades_hands_drop * RECEIVING.routes) / NULLIF(SUM(RECEIVING.routes), 0), 1)
 """
 
 
 
 RUSHING_SUM = """
-    SUM(RUSHING.run_play) as r_play,
-    SUM(RUSHING.attempts) as att,
-    SUM(RUSHING.yards) as yds,
-    SUM(RUSHING.touchdowns) as td,
-    SUM(RUSHING.fumbles) as fum,
-    SUM(RUSHING.first_downs) as "1d",
-    SUM(RUSHING.avoided_tackles) as avt,
-    SUM(RUSHING.explosive) as exp,
-    SUM(RUSHING.yards) - SUM(RUSHING.yards_after_contact) as ybc,
-    SUM(RUSHING.yards_after_contact) as yac,
-    SUM(RUSHING.breakaway_attempts) as baa,
-    SUM(RUSHING.breakaway_yards) as bay,
-    SUM(RUSHING.designed_yards) as dey,
-    SUM(RUSHING.gap_attempts) as g_att,
-    SUM(RUSHING.zone_attempts) as z_att, 
-    SUM(RUSHING.scramble) as scrm,
-    SUM(RUSHING.scramble_yards) as scrm_yds,
-    SUM(RUSHING.penalties) as pen,
-    ROUND(SUM(RUSHING.grades_run * RUSHING.attempts) / NULLIF(SUM(RUSHING.attempts), 0), 1) as grade_run,
-    ROUND(SUM(RUSHING.grades_hands_fumble * RUSHING.run_play) / NULLIF(SUM(RUSHING.run_play), 0), 1) as grade_fumble
+    SUM(RUSHING.run_play),
+    SUM(RUSHING.attempts),
+    SUM(RUSHING.yards),
+    SUM(RUSHING.touchdowns),
+    SUM(RUSHING.fumbles),
+    SUM(RUSHING.first_downs),
+    SUM(RUSHING.avoided_tackles),
+    SUM(RUSHING.explosive),
+    SUM(RUSHING.yards) - SUM(RUSHING.yards_after_contact),
+    SUM(RUSHING.yards_after_contact),
+    SUM(RUSHING.breakaway_attempts),
+    SUM(RUSHING.breakaway_yards),
+    SUM(RUSHING.designed_yards),
+    SUM(RUSHING.gap_attempts),
+    SUM(RUSHING.zone_attempts),
+    SUM(RUSHING.scramble),
+    SUM(RUSHING.scramble_yards),
+    SUM(RUSHING.penalties),
+    ROUND(SUM(RUSHING.grades_run * RUSHING.attempts) / NULLIF(SUM(RUSHING.attempts), 0), 1),
+    ROUND(SUM(RUSHING.grades_hands_fumble * RUSHING.run_play) / NULLIF(SUM(RUSHING.run_play), 0), 1)
 """
 
 
 
 BLOCKING_SUM = """
-    SUM(BLOCKING.snap_counts_offense) as s_off,
-    SUM(BLOCKING.snap_counts_pass_play) as s_pas,
-    SUM(BLOCKING.snap_counts_run_block) as s_run,
-    SUM(BLOCKING.snap_counts_lt) as s_lt,
-    SUM(BLOCKING.snap_counts_lg) as c_lg,
-    SUM(BLOCKING.snap_counts_ce) as s_ce,
-    SUM(BLOCKING.snap_counts_rg) as s_rg,
-    SUM(BLOCKING.snap_counts_rt) as s_rt,
-    SUM(BLOCKING.snap_counts_te) as s_te,
-    SUM(BLOCKING.penalties) as pen,
-    ROUND(SUM(BLOCKING.grades_pass_block * BLOCKING.snap_counts_pass_block) / NULLIF(SUM(BLOCKING.snap_counts_pass_block), 0), 1) as grade_pass_block,
-    ROUND(SUM(BLOCKING.grades_run_block * BLOCKING.snap_counts_run_block) / NULLIF(SUM(BLOCKING.snap_counts_run_block), 0), 1) as grade_run_block
+    SUM(BLOCKING.snap_counts_offense),
+    SUM(BLOCKING.snap_counts_pass_play),
+    SUM(BLOCKING.snap_counts_run_block),
+    SUM(BLOCKING.snap_counts_lt),
+    SUM(BLOCKING.snap_counts_lg),
+    SUM(BLOCKING.snap_counts_ce),
+    SUM(BLOCKING.snap_counts_rg),
+    SUM(BLOCKING.snap_counts_rt),
+    SUM(BLOCKING.snap_counts_te),
+    SUM(BLOCKING.penalties),
+    ROUND(SUM(BLOCKING.grades_pass_block * BLOCKING.snap_counts_pass_block) / NULLIF(SUM(BLOCKING.snap_counts_pass_block), 0), 1),
+    ROUND(SUM(BLOCKING.grades_run_block * BLOCKING.snap_counts_run_block) / NULLIF(SUM(BLOCKING.snap_counts_run_block), 0), 1)
 """
 
 
 
 PASS_BLOCKING_SUM = """
-    SUM(PASS_BLOCKING.snap_counts_pass_play) as snap_pp,
-    SUM(PASS_BLOCKING.hurries_allowed) as hur,
-    SUM(PASS_BLOCKING.hits_allowed) as hit,
-    SUM(PASS_BLOCKING.sacks_allowed) as sk,
-    SUM(PASS_BLOCKING.pressures_allowed) as pr,
-    ROUND(SUM(PASS_BLOCKING.grades_pass_block * PASS_BLOCKING.snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.snap_counts_pass_play), 0), 1) as grade_pass_block,
-    SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play) as t_snap_pp,
-    SUM(PASS_BLOCKING.true_pass_set_hurries_allowed) as t_hur,
-    SUM(PASS_BLOCKING.true_pass_set_hits_allowed) as t_hit,
-    SUM(PASS_BLOCKING.true_pass_set_sacks_allowed) as t_sk,
-    SUM(PASS_BLOCKING.true_pass_set_pressures_allowed) as t_pr,
-    ROUND(SUM(PASS_BLOCKING.true_pass_set_grades_pass_block * PASS_BLOCKING.true_pass_set_snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play), 0), 1) as t_grade_pass_block
+    SUM(PASS_BLOCKING.snap_counts_pass_play),
+    SUM(PASS_BLOCKING.hurries_allowed),
+    SUM(PASS_BLOCKING.hits_allowed),
+    SUM(PASS_BLOCKING.sacks_allowed),
+    SUM(PASS_BLOCKING.pressures_allowed),
+    ROUND(SUM(PASS_BLOCKING.grades_pass_block * PASS_BLOCKING.snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.snap_counts_pass_play), 0), 1),
+    SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play),
+    SUM(PASS_BLOCKING.true_pass_set_hurries_allowed),
+    SUM(PASS_BLOCKING.true_pass_set_hits_allowed),
+    SUM(PASS_BLOCKING.true_pass_set_sacks_allowed),
+    SUM(PASS_BLOCKING.true_pass_set_pressures_allowed),
+    ROUND(SUM(PASS_BLOCKING.true_pass_set_grades_pass_block * PASS_BLOCKING.true_pass_set_snap_counts_pass_play) / NULLIF(SUM(PASS_BLOCKING.true_pass_set_snap_counts_pass_play), 0), 1)
 """
 
 
 
 RUN_BLOCKING_SUM = """
-    SUM(RUN_BLOCKING.snap_counts_run_block) as snap_run_block,
-    SUM(RUN_BLOCKING.gap_snap_counts_run_block) as gap_snap_counts,
-    SUM(RUN_BLOCKING.zone_snap_counts_run_block) as zone_snap_counts,
-    SUM(RUN_BLOCKING.penalties) as pen,
-    ROUND(SUM(RUN_BLOCKING.grades_run_block * RUN_BLOCKING.snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.snap_counts_run_block), 0), 1) as grades_run_block,
-    ROUND(SUM(RUN_BLOCKING.gap_grades_run_block * RUN_BLOCKING.gap_snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.gap_snap_counts_run_block), 0), 1) as gap_grades_run_block,
-    ROUND(SUM(RUN_BLOCKING.zone_grades_run_block * RUN_BLOCKING.zone_snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.zone_snap_counts_run_block), 0), 1) as grade_zone_run_block
+    SUM(RUN_BLOCKING.snap_counts_run_block),
+    SUM(RUN_BLOCKING.gap_snap_counts_run_block),
+    SUM(RUN_BLOCKING.zone_snap_counts_run_block),
+    SUM(RUN_BLOCKING.penalties),
+    ROUND(SUM(RUN_BLOCKING.grades_run_block * RUN_BLOCKING.snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.snap_counts_run_block), 0), 1),
+    ROUND(SUM(RUN_BLOCKING.gap_grades_run_block * RUN_BLOCKING.gap_snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.gap_snap_counts_run_block), 0), 1),
+    ROUND(SUM(RUN_BLOCKING.zone_grades_run_block * RUN_BLOCKING.zone_snap_counts_run_block) / NULLIF(SUM(RUN_BLOCKING.zone_snap_counts_run_block), 0), 1)
 """
 
 
 
 PASS_RUSH_SUM = """
-    SUM(PASS_RUSH.snap_counts_pass_play) as snap_pp,
-    SUM(PASS_RUSH.snap_counts_pass_rush) as snap_pr,
-    SUM(PASS_RUSH.hurries) as hur,
-    SUM(PASS_RUSH.hits) as hit,
-    SUM(PASS_RUSH.sacks) as sk,
-    SUM(PASS_RUSH.total_pressures) as pr,
-    SUM(PASS_RUSH.pass_rush_opp) as pass_rush,
-    SUM(PASS_RUSH.pass_rush_wins) as pass_win, 
-    SUM(PASS_RUSH.batted_passes) as bat,
-    SUM(PASS_RUSH.penalties) as pen,
-    ROUND(SUM(PASS_RUSH.grades_pass_rush_defense * PASS_RUSH.snap_counts_pass_rush) / NULLIF(SUM(PASS_RUSH.snap_counts_pass_rush), 0), 1) as rush,
-    SUM(PASS_RUSH.true_pass_set_snap_counts_pass_play) as t_snap_pp,
-    SUM(PASS_RUSH.true_pass_set_snap_counts_pass_rush) as t_snap_pr,
-    SUM(PASS_RUSH.true_pass_set_hurries) as t_hur,
-    SUM(PASS_RUSH.true_pass_set_hits) as t_hit,
-    SUM(PASS_RUSH.true_pass_set_sacks) as t_sk,
-    SUM(PASS_RUSH.true_pass_set_total_pressures) as t_pr,
-    SUM(PASS_RUSH.true_pass_set_pass_rush_opp) as t_pass_rush,
-    SUM(PASS_RUSH.true_pass_set_pass_rush_wins) as t_pass_win,
-    SUM(PASS_RUSH.true_pass_set_batted_passes) as t_bat,
-    ROUND(SUM(PASS_RUSH.true_pass_set_grades_pass_rush_defense * PASS_RUSH.true_pass_set_snap_counts_pass_rush) / NULLIF(SUM(PASS_RUSH.true_pass_set_snap_counts_pass_rush), 0), 1) as t_rush
+    SUM(PASS_RUSH.snap_counts_pass_play),
+    SUM(PASS_RUSH.snap_counts_pass_rush),
+    SUM(PASS_RUSH.hurries),
+    SUM(PASS_RUSH.hits),
+    SUM(PASS_RUSH.sacks),
+    SUM(PASS_RUSH.total_pressures),
+    SUM(PASS_RUSH.pass_rush_opp),
+    SUM(PASS_RUSH.pass_rush_wins),
+    SUM(PASS_RUSH.batted_passes),
+    SUM(PASS_RUSH.penalties),
+    ROUND(SUM(PASS_RUSH.grades_pass_rush_defense * PASS_RUSH.snap_counts_pass_rush) / NULLIF(SUM(PASS_RUSH.snap_counts_pass_rush), 0), 1),
+    SUM(PASS_RUSH.true_pass_set_snap_counts_pass_play),
+    SUM(PASS_RUSH.true_pass_set_snap_counts_pass_rush),
+    SUM(PASS_RUSH.true_pass_set_hurries),
+    SUM(PASS_RUSH.true_pass_set_hits),
+    SUM(PASS_RUSH.true_pass_set_sacks),
+    SUM(PASS_RUSH.true_pass_set_total_pressures),
+    SUM(PASS_RUSH.true_pass_set_pass_rush_opp),
+    SUM(PASS_RUSH.true_pass_set_pass_rush_wins),
+    SUM(PASS_RUSH.true_pass_set_batted_passes),
+    ROUND(SUM(PASS_RUSH.true_pass_set_grades_pass_rush_defense * PASS_RUSH.true_pass_set_snap_counts_pass_rush) / NULLIF(SUM(PASS_RUSH.true_pass_set_snap_counts_pass_rush), 0), 1)
 """
 
 
 
 RUN_DEFENSE_SUM = """
-    SUM(RUN_DEFENSE.run_stop_opp) as snaps,
-    SUM(RUN_DEFENSE.tackles) + SUM(RUN_DEFENSE.assists) as combo,
-    SUM(RUN_DEFENSE.tackles) as tkl,
-    SUM(RUN_DEFENSE.assists) as ast,
-    SUM(RUN_DEFENSE.stops) as stp,
-    ROUND(SUM(RUN_DEFENSE.avg_depth_of_tackle) / NULLIF(SUM(RUN_DEFENSE.tackles), 0), 1) as adot,
-    SUM(RUN_DEFENSE.missed_tackles) as mtk,
-    SUM(RUN_DEFENSE.forced_fumbles) as ff,
-    SUM(RUN_DEFENSE.penalties) as pen,
-    ROUND(SUM(RUN_DEFENSE.grades_run_defense * RUN_DEFENSE.run_stop_opp) / NULLIF(SUM(RUN_DEFENSE.run_stop_opp), 0), 1) as grade_run_defense,
-    ROUND(SUM(RUN_DEFENSE.grades_tackle * RUN_DEFENSE.tackles) / NULLIF(SUM(RUN_DEFENSE.tackles), 0), 1) as grade_tackle
+    SUM(RUN_DEFENSE.run_stop_opp),
+    SUM(RUN_DEFENSE.tackles) + SUM(RUN_DEFENSE.assists),
+    SUM(RUN_DEFENSE.tackles),
+    SUM(RUN_DEFENSE.assists),
+    SUM(RUN_DEFENSE.stops),
+    ROUND(SUM(RUN_DEFENSE.avg_depth_of_tackle) / NULLIF(SUM(RUN_DEFENSE.tackles), 0), 1),
+    SUM(RUN_DEFENSE.missed_tackles),
+    SUM(RUN_DEFENSE.forced_fumbles),
+    SUM(RUN_DEFENSE.penalties),
+    ROUND(SUM(RUN_DEFENSE.grades_run_defense * RUN_DEFENSE.run_stop_opp) / NULLIF(SUM(RUN_DEFENSE.run_stop_opp), 0), 1),
+    ROUND(SUM(RUN_DEFENSE.grades_tackle * RUN_DEFENSE.tackles) / NULLIF(SUM(RUN_DEFENSE.tackles), 0), 1)
 """
 
 
 
 COVERAGE_SUM = """
-    SUM(COVERAGE.snap_counts_coverage) as snap,
-    SUM(COVERAGE.targets) as tgt,
-    SUM(COVERAGE.receptions) as rec,
-    SUM(COVERAGE.yards) as yds,
-    SUM(COVERAGE.touchdowns) as td,
-    SUM(COVERAGE.interceptions) as int,
-    SUM(COVERAGE.avg_depth_of_target) as adot,
-    SUM(COVERAGE.yards) - SUM(COVERAGE.yards_after_catch) as ybc,
-    SUM(COVERAGE.yards_after_catch) as yac,
-    SUM(COVERAGE.pass_break_ups) as pbu,
-    SUM(COVERAGE.forced_incompletes) finc,
-    SUM(COVERAGE.dropped_ints) dint,
-    ROUND(SUM(COVERAGE.grades_coverage_defense * COVERAGE.snap_counts_coverage) / NULLIF(SUM(COVERAGE.snap_counts_coverage), 0), 1) as grade_cov
+    SUM(COVERAGE.snap_counts_coverage),
+    SUM(COVERAGE.targets),
+    SUM(COVERAGE.receptions),
+    SUM(COVERAGE.yards),
+    SUM(COVERAGE.touchdowns),
+    SUM(COVERAGE.interceptions),
+    SUM(COVERAGE.avg_depth_of_target),
+    SUM(COVERAGE.yards) - SUM(COVERAGE.yards_after_catch),
+    SUM(COVERAGE.yards_after_catch),
+    SUM(COVERAGE.pass_break_ups),
+    SUM(COVERAGE.forced_incompletes),
+    SUM(COVERAGE.dropped_ints),
+    ROUND(SUM(COVERAGE.grades_coverage_defense * COVERAGE.snap_counts_coverage) / NULLIF(SUM(COVERAGE.snap_counts_coverage), 0), 1)
 """
+
+
+
+GAME_DATA_SUM = """
+    SELECT
+        TEAMS.Team_Name,
+        GAME_DATA.YEAR,
+        GAME_DATA.VERSION,
+        GAME_DATA.Week,
+        COUNT(DISTINCT GAME_DATA.Game_ID) as gp,
+        SUM(GAME_DATA.Points_For) as PTS_F,
+        SUM(GAME_DATA.Points_Against) as PTS_AGAINST,
+        SUM(GAME_DATA.FGM) as FGM,
+        SUM(GAME_DATA.FGA) as FGA,
+        SUM(GAME_DATA.XPM) as XPM,
+        SUM(GAME_DATA.XPA) as XPA
+    FROM GAME_DATA
+    JOIN TEAMS on GAME_DATA.Team_ID = TEAMS.Team_ID
+"""
+
+
+
+# TOTAL_SUM = f"""
+#     SELECT
+#         TEAMS.Team_Name,
+#         GAME_DATA.Year,
+#         GAME_DATA.Version,
+#         COUNT(DISTINCT GAME_DATA.Game_ID) as gp,
+#         SUM(GAME_DATA.Points_For) as Points_For,
+#         {PASSING_SUM},
+#         {RUSHING_SUM},
+#         {RECEIVING_SUM},
+#         {BLOCKING_SUM},
+#         {PASS_BLOCKING_SUM},
+#         {RUN_BLOCKING_SUM},
+#         {PASS_RUSH_SUM},
+#         {RUN_DEFENSE_SUM},
+#         {COVERAGE_SUM}
+#     FROM GAME_DATA
+#     JOIN PASSING on GAME_DATA.Game_ID = PASSING.Game_ID
+#     JOIN RUSHING on GAME_DATA.Game_ID = RUSHING.Game_ID
+#     JOIN RECEIVING on GAME_DATA.Game_ID = RECEIVING.Game_ID
+#     JOIN BLOCKING on GAME_DATA.Game_ID = BLOCKING.Game_ID
+#     JOIN PASS_BLOCKING on GAME_DATA.Game_ID = PASS_BLOCKING.Game_ID
+#     JOIN RUN_BLOCKING on GAME_DATA.Game_ID = RUN_BLOCKING.Game_ID
+#     JOIN PASS_RUSH on GAME_DATA.Game_ID = PASS_RUSH.Game_ID
+#     JOIN RUN_DEFENSE on GAME_DATA.Game_ID = RUN_DEFENSE.Game_ID
+#     JOIN COVERAGE on GAME_DATA.Game_ID = COVERAGE.Game_ID
+#     JOIN TEAMS on GAME_DATA.Team_ID = TEAMS.Team_ID
+# """
 
 
 
@@ -653,7 +703,8 @@ SUM_TABLE = {
     "run_blocking": {"query": RUN_BLOCKING_SUM, "table": "RUN_BLOCKING"},
     "pass_rush": {"query": PASS_RUSH_SUM, "table": "PASS_RUSH"},
     "run_defense": {"query": RUN_DEFENSE_SUM, "table": "RUN_DEFENSE"},
-    "coverage": {"query": COVERAGE_SUM, "table": "COVERAGE"}
+    "coverage": {"query": COVERAGE_SUM, "table": "COVERAGE"},
+    "game_data": {"query": GAME_DATA_SUM, "table": "GAME_DATA"}
 }
 
 
@@ -689,18 +740,10 @@ INSERT_TABLE = {
 
 
 
-def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False) -> str:
+def _where_conditions(args: dict, select: str, table: str, opp: bool) -> str:
     start_week, end_week, start_year, end_year, stat_type, league, version, pos, limit, team = args.values()
-    
-    query, table = SUM_TABLE[_type].values()
-    select = PLAYER_SELECT if is_player else TEAM_SELECT
-    select = select.format(SUM=query, TABLE=table)
 
     conditions = []
-    select += f"JOIN GAME_DATA on {table}.Game_ID = GAME_DATA.Game_ID\n"
-    select += f"JOIN TEAMS on {table}.Team_ID = TEAMS.Team_ID\n"
-    select += (f"JOIN PLAYERS on {table}.Player_ID = PLAYERS.Player_ID\n")
-
     if version is not None:
         conditions.append(f"{table}.VERSION = {version}")
     if start_year is not None:
@@ -715,13 +758,35 @@ def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False) ->
         conditions.append(f"{table}.TYPE = '{stat_type}'")
     if league is not None:
         conditions.append(f"{table}.LEAGUE = '{league}'")
-    # if pos is not None:
-    #     conditions.append(f"PLAYERS.Pos IN [{','.join(f"'{p}'" for p in pos)}]")
+    if pos is not None:
+        conditions.append(f"PLAYERS.Player_Pos IN [{','.join(f"'{p}'" for p in pos)}]")
     if team is not None:
-        conditions.append(f"TEAMS.Team_Abbr = '{team}'")
+        if opp:
+            conditions.append(f"GAME_DATA.Opponent_ID = (SELECT Team_ID FROM TEAMS WHERE Team_Abbr = '{team}')")
+        else:
+            conditions.append(f"TEAMS.Team_Abbr = '{team}'")
 
     if conditions:
         select += "WHERE " + " \nAND ".join(conditions)
+    
+    return select
+
+
+
+def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False, opp: bool = False) -> str:
+    query, table = SUM_TABLE[_type].values()
+    if by_game:
+        select = SINGLE_TEAM_SELECT if is_player else SINGLE_TEAM_SELECT
+    else:
+        select = PLAYER_SELECT if is_player else TEAM_SELECT
+    select = select.format(SUM=query, TABLE=table)
+
+    select += f"JOIN GAME_DATA on {table}.Game_ID = GAME_DATA.Game_ID\n"
+    
+    select += f"JOIN TEAMS on {table}.Team_ID = TEAMS.Team_ID\n"
+    select += f"JOIN PLAYERS on {table}.Player_ID = PLAYERS.Player_ID\n"
+
+    select = _where_conditions(args, select, table, opp)
     
     key = f"{table}.Player_ID" if is_player else f"{table}.Team_ID"
     select += f"\nGROUP BY {key}, {table}.Year"
@@ -729,19 +794,3 @@ def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False) ->
         select += f", {table}.Game_ID"
 
     return select
-
-
-
-if __name__ == "__main__":
-    start_week = 1
-    end_week = 18
-    start_year = 2006
-    end_year = 2024
-    stat_type = "rushing"
-    league = "NFL"
-    version = "0.0"
-    pos = None
-    limit = None
-    team = "IND"
-    args = {"start_week": start_week, "end_week": end_week, "start_year": start_year, "end_year": end_year, "stat_type": stat_type, "league": league, "version": version, "pos": pos, "limit": limit, "team": team}
-    get_query(args, "passing", False)

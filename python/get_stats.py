@@ -1,69 +1,99 @@
 import time 
 
 from db import Database
-from queries import get_query
+from converter import Converter
 from prettytable import PrettyTable
+from queries import get_query
 
 OPP = True
 ASC = False
-TEAM = False
 DESC = True
+TEAM = False
+TOTAL = True
 PLAYER = True
 DISPLAY = True
+OFFENSE = True
+DEFENSE = False
 PER_GAME = True
+STATS = {
+    "passing": False,
+    "rushing": False,
+    "receiving": False,
+    "blocking": False,
+    "pass_blocking": False,
+    "run_blocking": False,
+    "pass_rush": True,
+    "run_defense": True,
+    "coverage": True,
+    "game_data": False
+}
 
 class GetStats():
 
-    def __init__(self, db: Database) -> None:
-        self.db = db
+    def __init__(self) -> None:
+        self.db = Database()
+        self.converter = Converter()
         self.start_header = ["Pick", "Year", "VERSION", "TEAM", "POS", "GP"]
         self.headers = {
-            "passing": ["Snaps", "DB", "Cmp", "Aim", "Att", "Yds", "ADOT", "TD", "Int", "1D", "BTT", "TWP", "DRP", "Bat", "Hat", "TA", "Spk", "Sk", "Scrm", "Pen", "Grade", "FP", "SPRS"],
-            "receiving": ["Snaps", "Wide", "Slot", "In", "RTS", "TGT", "REC", "YDS", "TD", "INT", "1D", "DRP", "YBC", "YAC", "AT", "FUM", "CT", "CR", "PEN", "RECV", "ROUTE", "FP", "SPRS"],
-            "rushing": ["Snaps", "Att", "Yds", "TD", "Fum", "1D", "Avd", "Exp", "Ybc", "Yac", "b_att", "b_yds", "des_yds", "gap_att", "zone_att", "scrm", "scrm_yds", "pen", "RUN", "FUM", "FP", "SPRS"],
-            "blocking": ["Snaps", "P_SNAPS", "R_SNAPS", "LT_SNAPS", "LG_SNAPS", "CE_SNAPS", "RG_SNAPS", "RT_SNAPS", "TE_SNAPS", "PEN", "PASS_BLOCK", "RUN_BLOCK", "FP", "SPRS"],
-            "pass_blocking": ["Snaps", "HUR", "HIT", "SK", "PR", "PASS_BLOCK", "T_Snaps", "T_HUR", "T_HIT", "T_SK", "T_PR", "T_PASS_BLOCK", "FP", "SPRS"],
-            "run_blocking": ["Snaps", "GAP_SNAPS", "ZONE_SNAPS", "PEN", "RUN_BLOCK", "GAP_GRADES", "ZONE_GRADES", "FP", "SPRS"],
-            "pass_rush": ["Snaps_pp", "Snaps_pr", "HUR", "HIT", "SK", "PR", "PASS_RUSH", "WIN", "BAT", "PEN", "RUSH", "T_Snaps_pp", "T_Snaps_pr", "T_HUR", "T_HIT", "T_SK", "T_PR", "T_PASS_RUSH", "T_WIN", "T_BAT", "T_RUSH", "FP", "SPRS"],
-            "run_defense": ["Snaps", "Combo", "Tackles", "Assists", "Stops", "Adot", "Missed Tackles", "FF", "PEN", "RUN_DEF", "TACK", "FP", "SPRS"],
-            "coverage": ["Snaps", "TGT", "REC", "YDS", "TD", "INT", "ADOT", "YBC", "YAC", "PBU", "FI", "D_INT", "COV", "FP", "SPRS"] 
+            'passing': ['snaps', 'db', 'cmp', 'aim', 'att', 'yds', 'adot', 'td', 'int', '1d', 'btt', 'twp', 'drp', 'bat', 'hat', 'ta', 'spk', 'sk', 'scrm', 'pen', 'PASS', 'FP', 'SPRS'],
+            'receiving': ['snaps', 'wide', 'slot', 'in', 'rts', 'tgt', 'rec', 'yds', 'td', 'int', '1d', 'drp', 'ybc', 'yac', 'at', 'fum', 'ct', 'cr', 'pen', 'RECV', 'ROUTE', 'FP', 'SPRS'],
+            'rushing': ['snaps', 'att', 'yds', 'td', 'fum', '1d', 'avd', 'exp', 'ybc', 'yac', 'b_att', 'b_yds', 'des_yds', 'gap_att', 'zone_att', 'scrm', 'scrm_yds', 'pen', 'RUN', 'FUM', 'FP', 'SPRS'],
+            'blocking': ['snaps', 'p_snaps', 'r_snaps', 'lt_snaps', 'lg_snaps', 'ce_snaps', 'rg_snaps', 'rt_snaps', 'te_snaps', 'pen', 'PASS_BLOCK', 'RUN_BLOCK', 'FP', 'SPRS'],
+            'pass_blocking': ['snaps', 'hur', 'hit', 'sk', 'pr', 'PASS_BLOCK', 't_snaps', 't_hur', 't_hit', 't_sk', 't_pr', 'T_PASS_BLOCK', 'FP', 'SPRS'],
+            'run_blocking': ['snaps', 'gap_snaps', 'zone_snaps', 'pen', 'RUN_BLOCK', 'GAP_GRADES', 'ZONE_GRADES', 'FP', 'SPRS'],
+            'pass_rush': ['snaps_pp', 'snaps_pr', 'hur', 'hit', 'sk', 'pr', 'pass_rush', 'win', 'bat', 'pen', 'RUSH', 't_snaps_pp', 't_snaps_pr', 't_hur', 't_hit', 't_sk', 't_pr', 't_pass_rush', 't_win', 't_bat', 'T_RUSH', 'FP', 'SPRS'],
+            'run_defense': ['snaps', 'com', 'tkl', 'ast', 'stp', 'adot', 'm_tkl', 'ff', 'pen', 'RUN_DEF', 'TACK', 'FP', 'SPRS'],
+            'coverage': ['snaps', 'tgt', 'rec', 'yds', 'td', 'int', 'adot', 'ybc', 'yac', 'pbu', 'fi', 'd_int', 'COV', 'FP', 'SPRS']
         }
         self.max_key = {
-            "passing": "DB",
-            "receiving": "RTS",
-            "rushing": "Att",
-            "blocking": "Snaps",
-            "pass_blocking": "Snaps",
-            "run_blocking": "Snaps",
-            "pass_rush": "Snaps_pr",
-            "run_defense": "Snaps",
-            "coverage": "Snaps"
+            "passing": "db",
+            "receiving": "rts",
+            "rushing": "att",
+            "blocking": "snaps",
+            "pass_blocking": "snaps",
+            "run_blocking": "snaps",
+            "pass_rush": "snaps_pr",
+            "run_defense": "snaps",
+            "coverage": "snaps"
         }
             
             
 
-    def _calculate_fantasy_points(self, result: list, stat: str, header: list) -> int:
+    def _calculate_fantasy_points(self, result: dict, stat: str, sub_stat: str = None) -> int:
         fp = 0
         stats = None
         match stat:
             case "passing":
-                stats = {"Yds": 0.05, "TD": 6, "Int": -6, "1D": 0.5, "BTT": 3, "TWP": -3, "Sk": -1.5, "Pen": -3}
+                stats = {"yds": 0.05, "td": 6, "int": -6, "1d": 0.5, "btt": 3, "twp": -3, "sk": -1.5, "pen": -3}
             case "receiving":
-                stats = {"REC": 0.5, "TD": 6, "INT": -6, "1D": 0.5, "DRP": 3, "YBC": 0.0875, "YAC": 0.1625, "AT": 2, "FUM": -6, "CR": 0.5, "PEN": -3}      
+                stats = {"rec": 0.5, "td": 6, "int": -6, "1d": 0.5, "drp": 3, "ybc": 0.0875, "yac": 0.1625, "at": 2, "fum": -6, "cr": 0.5, "pen": -3}      
             case "rushing":
-                stats = {"TD": 6, "Fum": -6, "1D": 0.5, "Avd": 0.75, "Exp": 1.5, "Ybc": 0.0875, "Yac": 0.1625, "pen": -3}
+                stats = {"td": 6, "fum": -6, "1d": 0.5, "avd": 0.75, "exp": 1.5, "ybc": 0.0875, "yac": 0.1625, "pen": -3}
             case "pass_blocking":
-                stats = {"HUR": -0.25, "HIT": -0.3125, "SK": -0.375, "PR": -0.1875, "T_HUR": -0.5, "T_HIT": -0.625, "T_SK": -0.75, "T_PR": -0.375}
+                stats = {"hur": -0.25, "hit": -0.3125, "sk": -0.375, "pr": -0.1875, "t_hur": -0.5, "t_hit": -0.625, "t_sk": -0.75, "t_pr": -0.375}
             case "pass_rush":
-                stats = {"HUR": 0.25, "HIT": 0.3125, "SK": 0.375, "PR": 0.1875, "WIN": 0.4375, "PEN": -3, "T_HUR": 0.5, "T_HIT": 0.625, "T_SK": 0.75, "T_PR": 0.375, "T_WIN": 0.875}
+                stats = {"hur": 0.25, "hit": 0.3125, "sk": 0.375, "pr": 0.1875, "win": 0.4375, "pen": -3, "t_hur": 0.5, "t_hit": 0.625, "t_sk": 0.75, "t_pr": 0.375, "t_win": 0.875}
             case "run_defense":
-                stats = {"Tackles": 1.25, "Assists": 0.75, "Stops": 2.25, "Missed Tackles": -1, "FF": 3, "PEN": -3},
+                stats = {"tkl": 1.25, "ast": 0.75, "stop": 2.25, "m_tkl": -1, "ff": 3, "pen": -3}
             case "coverage":
-                stats = {"REC": -0.5, "TD": -6, "INT": 6, "YBC": -0.0875, "YAC": -0.1625, "PBU": 3, "FI": 2.5, "D_INT": 1.5}
+                stats = {"rec": -0.5, "td": -6, "int": 6, "ybc": -0.0875, "yac": -0.1625, "pbu": 3, "fi": 2.5, "d_int": 1.5}
+            case "total":
+                results = {
+                    "passing": {"td": 6, "int": -6, "1d": 0.5, "btt": 3, "twp": -3, "pen": -3},
+                    "rushing": {"td": 6, "fum": -6, "1d": 0.5, "avd": 0.75, "exp": 1.5, "ybc": 0.0875, "yac": 0.1625, "pen": -3},
+                    "receiving": {"rec": 0.5, "drp": 3, "ybc": 0.0875, "yac": 0.1625, "at": 2, "fum": -6, "cr": 0.5, "pen": -3},
+                    "pass_blocking": {"hur": -0.25, "hit": -0.3125, "sk": -0.375, "pr": -0.1875, "t_hur": -0.5, "t_hit": -0.625, "t_sk": -0.75, "t_pr": -0.375},
+                    "pass_rush": {"win": -0.4375, "pen": 3, "t_win": -0.875},
+                    "run_defense": {"tkl": -0.3125, "ast": -0.1875, "stp": -0.5625, "m_tkl": 0.125, "ff": -0.75, "pen": 0.75},
+                    "coverage": {"pbu": -3, "fi": -2.5, "d_int": -1.5}
+                }
+                if sub_stat not in results:
+                    return 0
+                stats = results[sub_stat]
 
         if stats is not None:
             for stat, mul in stats.items():
-                fp += result[header.index(stat)] * mul 
+                fp += result[stat] * mul
 
         return fp
     
@@ -128,9 +158,9 @@ class GetStats():
 
 
 
-    def season_stats(self, args: dict, _type: str, is_player: bool, display: bool, order: bool, by_game: bool = False):
-        query = get_query(args, _type, is_player, by_game)
-        results = self.db.call_query(query)
+    def season_stats(self, args: dict, _type: str, is_player: bool, display: bool = False, order: bool = False, by_game: bool = False, opp: bool = False):
+        query = get_query(args, _type, is_player, by_game, opp)
+        results = self.converter.convert_results(self.db.call_query(query), is_player, _type)
 
         if not display:
             return results
@@ -138,48 +168,93 @@ class GetStats():
         header = self.start_header + self.headers[_type]
         if is_player:
             header[0] = "Player"
+            if by_game:
+                header.insert(5, "Week")
         else:
             header[0] = "Team"
             [header.pop(i) for i in [4, 3]]
-        
-        att = header.index(self.max_key[_type])
+            if by_game:
+                header.insert(3, "Week")
 
-        max_att = max(result[att] for result in results)
+        # att = header.index(self.max_key[_type])
+        # max_att = max(result[att] for result in results)
 
         final_results = []
-        for result in results:
-            if not result[att] >= max_att * 0.45:
-                continue
+        for week in results:
 
-            result = list(result)
+            # result = list(result)
+            results[week]['fp'] = round(self._calculate_fantasy_points(results[week], _type), 2)
+            results[week]['sprs'] = 0
+            # result.append(round(self.calculate_sprs(header, result, _type), 3))
 
-            result.append(round(self._calculate_fantasy_points(result, _type, header), 2))
-            result.append(round(self.calculate_sprs(header, result, _type), 3))
+            # if not result[att] >= max_att * 0.25:
+            #     result[-1] = result[-1] / 4
 
-            final_results.append(result)
+            final_results.append(list(results[week].values()))
 
-        self._print_pretty_table(header, final_results, sort_by="SPRS", order=order, limit=limit)
+        self._print_pretty_table(header, final_results, sort_by="FP", order=order, limit=limit)
 
         return final_results
 
 
 
+    def get_total_stats(self, args: dict, is_offense: bool) -> list:
+        total_stats = {'scoring': {}}
+        for stat in STATS:
+            if stat not in total_stats:
+                total_stats[stat] = {}
+
+            if stat == "game_data":
+                continue
+                args['stat_type'], args['league'] = None, None
+                query = game_data_query(args)
+                results = self.db.call_query(query)
+                total_stats[stat] = results
+                continue
+
+            args['stat_type'] = stat
+            opp = STATS[stat] if is_offense else not STATS[stat]
+            results = self.season_stats(args, stat, TEAM, by_game=PER_GAME, opp=opp)
+
+            total_stats[stat] = results
+            for week in results:
+                if week not in total_stats['scoring']:
+                    total_stats['scoring'][week] = {'FP': 0}
+
+                total_stats['scoring'][week]['FP'] += self._calculate_fantasy_points(total_stats[stat][week], "total", sub_stat=stat)
+
+        return total_stats
+
+
 if __name__ == "__main__":
-    db = Database()
-    team = "CAR"
-    year = 2006
-    start_week = 1
-    end_week = 32
-    start_year = 2024
-    end_year = 2024
+    team = "PIT"
+    year = 2008
+    start_week = 9
+    end_week = 18
     stat_type = "passing"
     league = "NFL"
     version = "0.0"
-    pos = ["QB"]
+    pos = None
     limit = 50
-    args = {"start_week": start_week, "end_week": end_week, "start_year": start_year, "end_year": end_year, "stat_type": stat_type, "league": league, "version": version, "pos": pos, "limit": limit, "team": team}
+    args = {"start_week": 1, "end_week": 18, "start_year": year, "end_year": year, "stat_type": stat_type, "league": league, "version": version, "pos": pos, "limit": limit, "team": team}
     _type = stat_type
-    stats = GetStats(db)
+    stats = GetStats()
+    # stats.season_stats(args, _type, PLAYER, DISPLAY)
+    start_time = time.time()
+    offense = stats.get_total_stats(args, OFFENSE)
+    defense = stats.get_total_stats(args, DEFENSE)
+    end_time = time.time()
+    total_time = end_time - start_time
+    gp, off_sum, def_sum = 0, 0, 0
+    print(f"Time taken: {total_time} seconds")
+    print("==================================================================")
+    for off_week, def_week in zip(offense['scoring'], defense['scoring']):
+        gp += 1
+        off_score = offense["scoring"][off_week]['FP']
+        off_sum += off_score
+        def_score = defense["scoring"][def_week]['FP']
+        def_sum += def_score
+        print(f"Week {off_week}: Total Diff = {off_score - def_score:.2f}: Offense Score =  {off_score:.2f}: Defense Score = {def_score:.2f}")
+    print("==================================================================")
 
-    stats.season_stats(args, _type, TEAM, DISPLAY, DESC, PER_GAME)
-    db.kill()
+    print(f"Games: {gp}: Total diff = {off_sum - def_sum:.2f}: Offense Score = {off_sum:.2f}: Defense Score = {def_sum:.2f}")
