@@ -1,10 +1,15 @@
+import time
+import random
+import matplotlib.pyplot as plt
+
 from get_stats import GetStats
 from converter import Converter
-from collections import Counter
 
 
 TEAM = False
+PRINT = True
 OFFENSE = True
+STARTUP = True
 DEFENSE = False
 PER_GAME = True
 STATS = {"passing": True, "rushing": True, "receiving": True, "pass_blocking" : True, "run_blocking" : True, "pass_rush" : False, "run_defense" : False, "coverage" : False}
@@ -13,103 +18,33 @@ STATS = {"passing": True, "rushing": True, "receiving": True, "pass_blocking" : 
 class Team():
 
     def __init__(self, team_abr: str, year: int, version: str):
-        self.team_abr = team_abr
         self.year = year
         self.version = version
-        self.db = GetStats()
+        self.team_abr = team_abr
+        self.get_stats = GetStats()
         self.converter = Converter()
         self.stats = {'offense': {}, 'defense': {}}
+        
+        # Function Calls
         self._get_stats()
-    
+
 
 
     def _get_stats(self):
         args = {"start_week": None, "end_week": None, "start_year": self.year, "end_year": self.year, "stat_type": None, "league": 'NFL', "version": self.version, "pos": None, "limit": None, "team": self.team_abr}
-        for stat in STATS:
-            args["stat_type"] = stat
-            off_results = self.db.season_stats(args, stat, TEAM, by_game=PER_GAME)
-            off_results = self.converter.convert_results(off_results, TEAM, stat)
-
-            def_results = self.db.season_stats(args, stat, TEAM, opp=True, by_game=PER_GAME)
-            def_results = self.converter.convert_results(def_results, TEAM, stat)
-            
-            assert len(off_results) == len(def_results), f"Offense and defense stats for {stat} are different lengths"
-            assert off_results != def_results, f"Offense and defense stats for {stat} are the same"
-
-            self.stats['offense'][stat] = off_results
-            self.stats['defense'][stat] = def_results
-        
-        # orginizing the stats so we have a full offense and defense for each week
-        # offense_stats = {'scoring': {}}
-        # for stat in self.stats['offense']:
-        #     stat_key = 'offense' if STATS[stat] else 'defense'
-        #     offense_stats[stat] = {}
-        #     for week in self.stats[stat_key][stat]:
-        #         offense_stats[stat][week] = {}
-        #         offense_stats[stat][week] = self.stats[stat_key][stat][week]
-        #         if week not in offense_stats['scoring']:
-        #             offense_stats['scoring'][week] = {}
-        #         for key, value in self.stats[stat_key][stat][week].items():
-        #             if key.isupper():
-        #                 if key not in offense_stats['scoring'][week]:
-        #                     offense_stats['scoring'][week][key] = 0
-        #                 if value is None:
-        #                     value = 0
-        #                 add_value = -1 * value if key == 'FP' and not STATS[stat] else value
-        #                 offense_stats['scoring'][week][key] += add_value
-                    
-        # self._calcuate_team_sprs(offense_stats)
-    
-
-    def _calcuate_team_sprs(self, team_stats: dict) -> None:
-        for week in team_stats['scoring']:
-            sc = team_stats['scoring'][week]
-            passing = sc['PASS'] * 0.35 + sc['RECV'] * 0.25 + sc['ROUTE'] * 0.11 + sc['PASS_BLOCK'] * 0.24 + sc['T_PASS_BLOCK'] * 0.05
-            running = sc['RUN'] * 0.3 + sc['FUM'] * 0.1 + sc['RUN_BLOCK'] * 0.5 + sc['GAP_GRADES'] * 0.05 + sc['ZONE_GRADES'] * 0.05
-            presure = sc['RUSH'] * 0.85 + sc['T_RUSH'] * 0.15
-            cov = sc['COV']
-            run_def = sc['RUN_DEF'] * 0.8 + sc['TACK'] * 0.2
-
-            offense = passing * 0.6 + running * 0.4
-            defense = cov * 0.35 + run_def * 0.2 + presure * 0.45
-            team_ovr = (offense * 0.55 + (100 - defense) * 0.45)
-
-            sc['SPRS'] = team_ovr * 0.7 + sc['FP'] * 0.3
+        self.stats['offense'] = self.get_stats.get_total_stats(args, OFFENSE)
+        self.stats['defense'] = self.get_stats.get_total_stats(args, DEFENSE)
 
 
 
-class Simulation:
+class Stats():
 
     def __init__(self):
-        self.histograms = {}
         pass
 
 
 
-    def sim_game(self, team1: Team, team2: Team):
-        self.team1 = team1
-        self.team2 = team2
-        self._create_histogram(self.team1)
-        self._create_histogram(self.team2)
-        pass
-
-
-
-    def _create_histogram(self, team: Team):
-        stats = {}
-        for side_of_ball in team.stats:
-            stats[side_of_ball] = {}
-            for stat in team.stats[side_of_ball]:
-                stats[side_of_ball][stat] = {}
-                data_list = []
-                for week in team.stats[side_of_ball][stat]:
-                    data_list.append(list(team.stats[side_of_ball][stat][week].values()))
-                last_values = [item[-1] for item in data_list]
-                bins = self._bin_math(last_values)
-    
-
-
-    def _bin_math(self, values: list[int]) -> list[int]:
+    def bin_values(self, values: list[int]) -> dict:
         # finding the min and max values of the list
         min_val, max_val = float('inf'), float('-inf')
         for val in values:
@@ -118,22 +53,182 @@ class Simulation:
         # calculating the range of the list
         range_val = max_val - min_val
         # finding out the number of bins in the list
-        bins = round(len(values) ** 0.5)
+        amount_bins = round(len(values) ** 0.5)
         # calculating the bin width
-        bin_width = range_val / bins
-        bins = []
+        bin_width = range_val / amount_bins
+        bins = {}
         add = min_val
-        for _ in range(bins):
-            bins.append(add)
+        for _ in range(amount_bins):
+            bins[add] = {'values': [], 'pct': 0}
             add += bin_width
         return bins
+    
+
+
+    def find_bin(self, score: int, bins: list) -> int | None:
+        if score >= bins[-1]:
+            return bins[-1]
+
+        for key in bins:
+            if score <= key:
+                return key
+            
+        return None
+    
+
+
+    def get_histogram(self, team: Team, side_of_ball: str):
+        values = [team.stats[side_of_ball]['scoring'][week]['FP'] for week in team.stats[side_of_ball]['scoring']]
+        bins = self.bin_values(values)
+
+        for week in team.stats[side_of_ball]['scoring']:
+            bin_key = self.find_bin(team.stats[side_of_ball]['scoring'][week]['FP'], list(bins.keys()))
+            bins[bin_key]['values'].append(week)
+
+        total_pct = 0
+        for bin_key in bins:
+            pct = len(bins[bin_key]['values']) / len(team.stats[side_of_ball]['scoring'])
+            bins[bin_key]['pct'] = pct + total_pct
+            total_pct += pct
+
+        return bins
+
+
+
+class Simulation:
+
+    def __init__(self):
+        self.stats = Stats()
+        self.histograms = {}
+        pass
+
+
+
+    def sim_game(self, team1: Team, team2: Team, startup: bool = True, print_score: bool = True) -> int | None:
+        if startup:
+            self._sim_startup(team1, team2)
+
+        # team1 offense & defense
+        team1_offense_game = self._get_game(self.team1, 'offense')
+        team1_defense_game = self._get_game(self.team1, 'defense')
+
+        # team2 offense & defense
+        team2_offense_game = self._get_game(self.team2, 'offense')
+        team2_defense_game = self._get_game(self.team2, 'defense')
+
+        # Calculate final scores
+        team1_final_score = round((team1_offense_game + team2_defense_game) / 2, 2)
+        team2_final_score = round((team2_offense_game + team1_defense_game) / 2, 2)
+
+        # Determine winner (1 for team1, 2 for team2, 0 for tie)
+        winner = (team1_final_score > team2_final_score) - (team1_final_score < team2_final_score)
+
+        if print_score:
+            self._print_results({
+                'team1_score': team1_final_score,
+                'team2_score': team2_final_score
+            })
+            return None
+
+        return winner
+    
+
+
+    def best_of(self, team1: Team, team2: Team, series_length: int) -> None:
+        self._sim_startup(team1, team2)
+
+        first_to = series_length // 2 + 1
+        t1_wins = [0]
+        t2_wins = [0]
+        wins = {'t1': 0, 't2': 0}
+        while wins['t1'] < first_to and wins['t2'] < first_to:
+            score = self.sim_game(team1, team2, startup=False, print_score=False)
+            if score == 1:
+                wins['t1'] += 1
+                t1_wins.append(t1_wins[-1] + 1)
+                t2_wins.append(t2_wins[-1])
+            elif score == -1:
+                wins['t2'] += 1
+                t2_wins.append(t2_wins[-1] + 1)
+                t1_wins.append(t1_wins[-1])
+
+        self._print_results(wins)
+        plt.plot(t1_wins, label=f"{team1.team_abr}")
+        plt.plot(t2_wins, label=f"{team2.team_abr}")
+        plt.legend()
+        plt.show()
+
+
+
+    def _print_results(self, wins: dict) -> None:
+        if 't1' in wins and 't2' in wins:
+            # This is a series result
+            print(f"\nSeries Results:")
+            print(f"{self.team1.team_abr}: {wins['t1']} wins")
+            print(f"{self.team2.team_abr}: {wins['t2']} wins")
+            if wins['t1'] > wins['t2']:
+                print(f"Series Winner: {self.team1.team_abr}")
+            elif wins['t2'] > wins['t1']:
+                print(f"Series Winner: {self.team2.team_abr}")
+            else:
+                print("Series ended in a tie")
+        else:
+            # This is a single game result
+            team1_score = wins.get('team1_score', 0)
+            team2_score = wins.get('team2_score', 0)
+            if team1_score > team2_score:
+                print(f"Winner: {self.team1.team_abr} {team1_score} - Loser: {self.team2.team_abr} {team2_score}")
+            elif team2_score > team1_score:
+                print(f"Winner: {self.team2.team_abr} {team2_score} - Loser: {self.team1.team_abr} {team1_score}")
+            else:
+                print(f"Tie: {self.team1.team_abr} {team1_score} - {self.team2.team_abr} {team2_score}")
+    
+
+
+    def _sim_startup(self, team1: Team, team2: Team) -> None:
+        self.team1 = team1
+        self.team2 = team2
+        self._create_histogram(self.team1)
+        self._create_histogram(self.team2)
+    
+
+
+    def _create_histogram(self, team: Team):
+        self.histograms[team.team_abr] = {}
+        for side_of_ball in team.stats:
+            self.histograms[team.team_abr][side_of_ball] = self.stats.get_histogram(team, side_of_ball)
+
+    
+
+    def _get_game(self, team: Team, side_of_ball: str) -> int:
+        pcts = {self.histograms[team.team_abr][side_of_ball][bin_key]['pct']: bin_key for bin_key in self.histograms[team.team_abr][side_of_ball]}
+        while True:
+            pct = random.random()
+            games = None
+            for pct_key in pcts:
+                if pct <= pct_key:
+                    games = self.histograms[team.team_abr][side_of_ball][pcts[pct_key]]['values']
+                    break
+            
+            if len(games) == 0:
+                continue
+            else:
+                break
         
+        week = random.choice(games)
+        score = team.stats[side_of_ball]['scoring'][week]['FP']
+        return score
 
 
 
 if __name__ == "__main__":
     version = "0.0"
-    team1 = Team("KC", 2024, version)
-    team2 = Team("PHI", 2024, version)
+    year = 2022
+    start_time = time.time()
+    team1 = Team("NE", 2007, version)
+    team2 = Team("CLV", 2017, version)
     simulation = Simulation()
-    simulation.sim_game(team1, team2)
+    simulation.best_of(team1, team2, 7_000_000)
+
+    end_time = time.time()
+    print(f"Time taken: {end_time - start_time} seconds")

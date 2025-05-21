@@ -1,5 +1,5 @@
 import time 
-
+from tqdm import tqdm
 from db import Database
 from converter import Converter
 from prettytable import PrettyTable
@@ -206,11 +206,11 @@ class GetStats():
 
             if stat == "game_data":
                 continue
-                args['stat_type'], args['league'] = None, None
-                query = game_data_query(args)
-                results = self.db.call_query(query)
-                total_stats[stat] = results
-                continue
+                # args['stat_type'], args['league'] = None, None
+                # query = game_data_query(args)
+                # results = self.db.call_query(query)
+                # total_stats[stat] = results
+                # continue
 
             args['stat_type'] = stat
             opp = STATS[stat] if is_offense else not STATS[stat]
@@ -227,34 +227,16 @@ class GetStats():
 
 
 if __name__ == "__main__":
-    team = "PIT"
-    year = 2008
-    start_week = 9
-    end_week = 18
+    team = "CAR"
+    year = 2012
+    start_week = 1
+    end_week = 32
     stat_type = "passing"
     league = "NFL"
     version = "0.0"
     pos = None
     limit = 50
-    args = {"start_week": 1, "end_week": 18, "start_year": year, "end_year": year, "stat_type": stat_type, "league": league, "version": version, "pos": pos, "limit": limit, "team": team}
+    args = {"start_week": start_week, "end_week": end_week, "start_year": year, "end_year": year, "stat_type": stat_type, "league": league, "version": version, "pos": pos, "limit": limit, "team": team}
     _type = stat_type
-    stats = GetStats()
-    # stats.season_stats(args, _type, PLAYER, DISPLAY)
-    start_time = time.time()
-    offense = stats.get_total_stats(args, OFFENSE)
-    defense = stats.get_total_stats(args, DEFENSE)
-    end_time = time.time()
-    total_time = end_time - start_time
-    gp, off_sum, def_sum = 0, 0, 0
-    print(f"Time taken: {total_time} seconds")
-    print("==================================================================")
-    for off_week, def_week in zip(offense['scoring'], defense['scoring']):
-        gp += 1
-        off_score = offense["scoring"][off_week]['FP']
-        off_sum += off_score
-        def_score = defense["scoring"][def_week]['FP']
-        def_sum += def_score
-        print(f"Week {off_week}: Total Diff = {off_score - def_score:.2f}: Offense Score =  {off_score:.2f}: Defense Score = {def_score:.2f}")
-    print("==================================================================")
 
-    print(f"Games: {gp}: Total diff = {off_sum - def_sum:.2f}: Offense Score = {off_sum:.2f}: Defense Score = {def_sum:.2f}")
+    stats = GetStats()
