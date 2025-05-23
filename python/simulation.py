@@ -1,7 +1,7 @@
 import time
 import random
-import matplotlib.pyplot as plt
 
+from bracket import Bracket
 from get_stats import GetStats
 from converter import Converter
 
@@ -24,10 +24,16 @@ class Team():
         self.get_stats = GetStats()
         self.converter = Converter()
         self.stats = {'offense': {}, 'defense': {}}
-        
+        self.team_key = f"{team_abr}_{year}_{version}"
+
         # Function Calls
         self._get_stats()
 
+
+
+    def __repr__(self):
+        return self.team_key
+    
 
 
     def _get_stats(self):
@@ -85,13 +91,23 @@ class Stats():
             bin_key = self.find_bin(team.stats[side_of_ball]['scoring'][week]['FP'], list(bins.keys()))
             bins[bin_key]['values'].append(week)
 
+        del_keys = []
         total_pct = 0
+        pct_dict = {}
         for bin_key in bins:
+            if len(bins[bin_key]['values']) == 0:
+                del_keys.append(bin_key)
+                continue
+            
             pct = len(bins[bin_key]['values']) / len(team.stats[side_of_ball]['scoring'])
             bins[bin_key]['pct'] = pct + total_pct
+            pct_dict[pct + total_pct] = bin_key
             total_pct += pct
 
-        return bins
+        for bin_key in del_keys:
+            del bins[bin_key]
+
+        return bins, pct_dict
 
 
 
@@ -138,25 +154,21 @@ class Simulation:
         self._sim_startup(team1, team2)
 
         first_to = series_length // 2 + 1
-        t1_wins = [0]
-        t2_wins = [0]
         wins = {'t1': 0, 't2': 0}
         while wins['t1'] < first_to and wins['t2'] < first_to:
             score = self.sim_game(team1, team2, startup=False, print_score=False)
             if score == 1:
                 wins['t1'] += 1
-                t1_wins.append(t1_wins[-1] + 1)
-                t2_wins.append(t2_wins[-1])
             elif score == -1:
                 wins['t2'] += 1
-                t2_wins.append(t2_wins[-1] + 1)
-                t1_wins.append(t1_wins[-1])
 
         self._print_results(wins)
-        plt.plot(t1_wins, label=f"{team1.team_abr}")
-        plt.plot(t2_wins, label=f"{team2.team_abr}")
-        plt.legend()
-        plt.show()
+
+
+
+    def sim_bracket(self, teams: list[Team], series_length: int) -> None:
+        bracket = Bracket(teams)
+        pass
 
 
 
@@ -164,12 +176,15 @@ class Simulation:
         if 't1' in wins and 't2' in wins:
             # This is a series result
             print(f"\nSeries Results:")
-            print(f"{self.team1.team_abr}: {wins['t1']} wins")
-            print(f"{self.team2.team_abr}: {wins['t2']} wins")
+            print(f"{self.team1.team_key}: {wins['t1']} wins")
+            print(f"{self.team2.team_key}: {wins['t2']} wins")
+            t1_win_pct = f"{(wins['t1'] / (wins['t1'] + wins['t2'])) * 100:.2f}%"
+            t2_win_pct = f"{(wins['t2'] / (wins['t1'] + wins['t2'])) * 100:.2f}%"
+            print(f"Win Percentage: {t1_win_pct} {t2_win_pct}")
             if wins['t1'] > wins['t2']:
-                print(f"Series Winner: {self.team1.team_abr}")
+                print(f"Series Winner: {self.team1.team_key}")
             elif wins['t2'] > wins['t1']:
-                print(f"Series Winner: {self.team2.team_abr}")
+                print(f"Series Winner: {self.team2.team_key}")
             else:
                 print("Series ended in a tie")
         else:
@@ -177,11 +192,11 @@ class Simulation:
             team1_score = wins.get('team1_score', 0)
             team2_score = wins.get('team2_score', 0)
             if team1_score > team2_score:
-                print(f"Winner: {self.team1.team_abr} {team1_score} - Loser: {self.team2.team_abr} {team2_score}")
+                print(f"Winner: {self.team1.team_key} {team1_score} - Loser: {self.team2.team_key} {team2_score}")
             elif team2_score > team1_score:
-                print(f"Winner: {self.team2.team_abr} {team2_score} - Loser: {self.team1.team_abr} {team1_score}")
+                print(f"Winner: {self.team2.team_key} {team2_score} - Loser: {self.team1.team_key} {team1_score}")
             else:
-                print(f"Tie: {self.team1.team_abr} {team1_score} - {self.team2.team_abr} {team2_score}")
+                print(f"Tie: {self.team1.team_key} {team1_score} - {self.team2.team_key} {team2_score}")
     
 
 
@@ -194,26 +209,26 @@ class Simulation:
 
 
     def _create_histogram(self, team: Team):
-        self.histograms[team.team_abr] = {}
+        team_key = team.team_key
+        self.histograms[team_key] = {}
         for side_of_ball in team.stats:
-            self.histograms[team.team_abr][side_of_ball] = self.stats.get_histogram(team, side_of_ball)
+            bins, pct_dict = self.stats.get_histogram(team, side_of_ball)
+            self.histograms[team_key][side_of_ball] = {'bins': bins, 'pct_dict': pct_dict}
 
     
 
     def _get_game(self, team: Team, side_of_ball: str) -> int:
-        pcts = {self.histograms[team.team_abr][side_of_ball][bin_key]['pct']: bin_key for bin_key in self.histograms[team.team_abr][side_of_ball]}
-        while True:
-            pct = random.random()
-            games = None
-            for pct_key in pcts:
-                if pct <= pct_key:
-                    games = self.histograms[team.team_abr][side_of_ball][pcts[pct_key]]['values']
-                    break
-            
-            if len(games) == 0:
-                continue
-            else:
+        team_key = team.team_key
+        pcts = self.histograms[team_key][side_of_ball]['pct_dict']
+        pct = random.random()
+        games = None
+        for pct_key in pcts:
+            if pct <= pct_key:
+                games = self.histograms[team_key][side_of_ball]['bins'][pcts[pct_key]]['values']
                 break
+        
+        if games is None:
+            raise ValueError(f"No games found for {team_key} {side_of_ball}")
         
         week = random.choice(games)
         score = team.stats[side_of_ball]['scoring'][week]['FP']
@@ -221,14 +236,31 @@ class Simulation:
 
 
 
-if __name__ == "__main__":
-    version = "0.0"
-    year = 2022
-    start_time = time.time()
-    team1 = Team("NE", 2007, version)
-    team2 = Team("CLV", 2017, version)
-    simulation = Simulation()
-    simulation.best_of(team1, team2, 7_000_000)
 
+
+
+if __name__ == "__main__":
+    year = 2006
+    games = 70_000
+    version = "0.0"
+
+    start_time = time.time()
+    teams = [
+        Team("SD", year, version),
+        Team("BLT", year, version),
+        Team("IND", year, version),
+        Team("NE", year, version),
+        Team("NYJ", year, version),
+        Team("KAN", year, version)
+    ]
     end_time = time.time()
-    print(f"Time taken: {end_time - start_time} seconds")
+    print(f"Time taken to load data: {end_time - start_time} seconds\n")
+
+    print(f"Simulating Bracket... (Each series is a best of {games})")
+    start_time = time.time()
+    simulation = Simulation()
+    simulation.sim_bracket(teams, games)
+    end_time = time.time()
+    print(f"\nTime taken: {end_time - start_time} seconds")
+    print("Simulation complete")
+    
