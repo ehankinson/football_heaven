@@ -12,7 +12,8 @@ class Converter():
             'run_blocking': ['snaps', 'gap_snaps', 'zone_snaps', 'pen', 'RUN_BLOCK', 'GAP_GRADES', 'ZONE_GRADES', 'FP', 'SPRS'],
             'pass_rush': ['snaps_pp', 'snaps_pr', 'hur', 'hit', 'sk', 'pr', 'pass_rush', 'win', 'bat', 'pen', 'RUSH', 't_snaps_pp', 't_snaps_pr', 't_hur', 't_hit', 't_sk', 't_pr', 't_pass_rush', 't_win', 't_bat', 'T_RUSH', 'FP', 'SPRS'],
             'run_defense': ['snaps', 'com', 'tkl', 'ast', 'stp', 'adot', 'm_tkl', 'ff', 'pen', 'RUN_DEF', 'TACK', 'FP', 'SPRS'],
-            'coverage': ['snaps', 'tgt', 'rec', 'yds', 'td', 'int', 'adot', 'ybc', 'yac', 'pbu', 'fi', 'd_int', 'COV', 'FP', 'SPRS']
+            'coverage': ['snaps', 'tgt', 'rec', 'yds', 'td', 'int', 'adot', 'ybc', 'yac', 'pbu', 'fi', 'd_int', 'COV', 'FP', 'SPRS'],
+            'game_data': ['team', 'year', 'version', 'week', 'gp', 'pts_for', 'pts_against', 'fgm', 'fga', 'xpm', 'xpa']
         }
 
 
@@ -20,7 +21,8 @@ class Converter():
     def convert_results(self, results: tuple[tuple], is_player: bool, stat: str) -> list[dict]:
         final_results = {}
         start = self.player_start_header if is_player else self.team_start_header
-        header = start + self.headers[stat]
+        header = start + self.headers[stat] if stat != 'game_data' else self.headers[stat]
+            
         for result in results:
             results = (dict(zip(header, result)))
             final_results[results['week']] = results

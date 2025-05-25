@@ -3,7 +3,7 @@ from tqdm import tqdm
 from db import Database
 from converter import Converter
 from prettytable import PrettyTable
-from queries import get_query
+from queries import get_query, game_data_query
 
 OPP = True
 ASC = False
@@ -205,12 +205,10 @@ class GetStats():
                 total_stats[stat] = {}
 
             if stat == "game_data":
+                query = game_data_query(args)
+                results = self.converter.convert_results(self.db.call_query(query), TEAM, stat)
+                total_stats[stat] = results
                 continue
-                # args['stat_type'], args['league'] = None, None
-                # query = game_data_query(args)
-                # results = self.db.call_query(query)
-                # total_stats[stat] = results
-                # continue
 
             args['stat_type'] = stat
             opp = STATS[stat] if is_offense else not STATS[stat]

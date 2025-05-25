@@ -663,37 +663,6 @@ GAME_DATA_SUM = """
 
 
 
-# TOTAL_SUM = f"""
-#     SELECT
-#         TEAMS.Team_Name,
-#         GAME_DATA.Year,
-#         GAME_DATA.Version,
-#         COUNT(DISTINCT GAME_DATA.Game_ID) as gp,
-#         SUM(GAME_DATA.Points_For) as Points_For,
-#         {PASSING_SUM},
-#         {RUSHING_SUM},
-#         {RECEIVING_SUM},
-#         {BLOCKING_SUM},
-#         {PASS_BLOCKING_SUM},
-#         {RUN_BLOCKING_SUM},
-#         {PASS_RUSH_SUM},
-#         {RUN_DEFENSE_SUM},
-#         {COVERAGE_SUM}
-#     FROM GAME_DATA
-#     JOIN PASSING on GAME_DATA.Game_ID = PASSING.Game_ID
-#     JOIN RUSHING on GAME_DATA.Game_ID = RUSHING.Game_ID
-#     JOIN RECEIVING on GAME_DATA.Game_ID = RECEIVING.Game_ID
-#     JOIN BLOCKING on GAME_DATA.Game_ID = BLOCKING.Game_ID
-#     JOIN PASS_BLOCKING on GAME_DATA.Game_ID = PASS_BLOCKING.Game_ID
-#     JOIN RUN_BLOCKING on GAME_DATA.Game_ID = RUN_BLOCKING.Game_ID
-#     JOIN PASS_RUSH on GAME_DATA.Game_ID = PASS_RUSH.Game_ID
-#     JOIN RUN_DEFENSE on GAME_DATA.Game_ID = RUN_DEFENSE.Game_ID
-#     JOIN COVERAGE on GAME_DATA.Game_ID = COVERAGE.Game_ID
-#     JOIN TEAMS on GAME_DATA.Team_ID = TEAMS.Team_ID
-# """
-
-
-
 SUM_TABLE = {
     "passing": {"query": PASSING_SUM, "table": "PASSING"},
     "rushing": {"query": RUSHING_SUM, "table": "RUSHING"},
@@ -794,3 +763,12 @@ def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False, op
         select += f", {table}.Game_ID"
 
     return select
+
+
+
+def game_data_query(args: dict) -> str:
+    query = GAME_DATA_SUM
+    args['stat_type'], args['league'] = None, None
+    query = _where_conditions(args, query, "GAME_DATA", False)
+    query += "\nGROUP BY GAME_DATA.Game_ID, TEAMS.Team_ID"
+    return query
