@@ -1,17 +1,59 @@
+"""CSV-to-SQLite ingestion utilities for Football Heaven.
+
+This module loads team, game, and player statistic CSVs and inserts them into the
+SQLite database used by the project. It includes batching/caching for performance
+and normalizes certain source quirks (e.g., playoff week codes).
+"""
+
 import os
 import csv
 import time
 from collections.abc import Callable
 
-from db import Database
-from const import *
 from queries import INSERT_START, CREATE_TABLE, INSERT_TABLE
+from const import (
+    PASSING,
+    RUSHING,
+    BLOCKING,
+    COVERAGE,
+    RECEIVING,
+    PASS_RUSH,
+    RUN_DEFENSE,
+    RUN_BLOCKING,
+    PASS_BLOCKING,
+    PASSING_DEPTH,
+    COVERAGE_SCHEME,
+    RECEIVING_DEPTH,
+    PASSING_PRESSURE,
+    RECEIVING_SCHEME,
+    normalize_week,
+)
+
+from db import Database
 
 PLAYER_ID = 2
 TEAM_NAME_INDEX = 1
 OPPONENT_NAME_INDEX = 4
 GAME_YEAR_INDEX = 2
 GAME_WEEK_INDEX = 3
+
+START_FILE = "csv/PFF_{league}_{info}_{year}.csv"
+INFO = [
+    "Passing",
+    "Passing_Depth",
+    "Passing_Pressure",
+    "Receiving",
+    "Receiving_Depth",
+    "Receiving_Scheme",
+    "Rushing",
+    "Blocking",
+    "Pass_Blocking",
+    "Run_Blocking",
+    "Coverage",
+    "Coverage_Scheme",
+    "Pass_Rush",
+    "Run_Defense"
+]
 
 
 class Insert:
@@ -36,24 +78,6 @@ class Insert:
     def __init__(self) -> None:
         self.db = Database()
         self.cache = 100_000
-        self.START_FILE = "csv/PFF_{league}_{info}_{year}.csv"
-        self.INFO = [
-            "Passing",
-            "Passing_Depth",
-            "Passing_Pressure",
-            "Receiving",
-            "Receiving_Depth",
-            "Receiving_Scheme",
-            "Rushing",
-            "Blocking",
-            "Pass_Blocking",
-            "Run_Blocking",
-            "Coverage",
-            "Coverage_Scheme",
-            "Pass_Rush",
-            "Run_Defense"
-        ]
-        self.TABLES = CREATE_TABLE
         self._team_id_cache: dict[str, int | None] = {}
         self._game_id_cache: dict[tuple[int, int, int, str], int | None] = {}
         self._handlers: dict[str, Callable[[list[str], dict], None]] = self._build_handlers()
@@ -265,7 +289,7 @@ class Insert:
                 conference = row[4].strip()
                 query = """
                     INSERT OR IGNORE INTO TEAMS (Team_Abbr, League, Team_Name, Division, Conference) VALUES (?, ?, ?, ?, ?)
-                """ 
+                """
                 self.db.cursor.execute(query, (team_abbr, league, team_name, division, conference))
 
         self.db.conn.commit()
@@ -292,7 +316,7 @@ class Insert:
                 for row in reader:
                     if row[2] == "Team":
                         continue
-                    
+
                     if league == "NCAA":
                         row.insert(14, row[14])
 
@@ -301,8 +325,8 @@ class Insert:
 
                     team_id = self.db.get_team_id(row[TEAM_NAME_INDEX].strip())
                     opp_id = self.db.get_team_id(row[OPPONENT_NAME_INDEX].strip())
-                    row[TEAM_NAME_INDEX] = team_id
-                    row[OPPONENT_NAME_INDEX] = opp_id
+                    row[TEAM_NAME_INDEX] = str(team_id)
+                    row[OPPONENT_NAME_INDEX] = str(opp_id)
                     # Normalize playoff week encoding (29-32) to sequential weeks (19-22).
                     row[GAME_WEEK_INDEX] = str(self._normalize_week(int(row[GAME_WEEK_INDEX])))
 
@@ -311,15 +335,15 @@ class Insert:
                         if not i:
                             continue
 
-                        row[i] = int(r) if r not in {'', None} else 0
+                        row[i] = str(int(r)) if r not in {'', None} else '0'
 
                     if league == "NFL":
-                        row += [0] * 4
-                    
+                        row += ['0'] * 4
+
                     # Prepend GAME_ID to row
-                    row = [next_game_id] + row
+                    row = [str(next_game_id)] + row
                     next_game_id += 1
-                    
+
                     query = f"""
                         INSERT OR IGNORE INTO GAME_DATA (
                             GAME_ID, Version, Team_ID, Year, Week, Opponent_ID, Points_For, Points_Against, Diff,
@@ -331,7 +355,7 @@ class Insert:
                     if i % self.cache == 0:
                         self.db.conn.commit()
                         self.db.conn.execute("BEGIN TRANSACTION")
-        
+
         self.db.conn.commit()
 
 
@@ -401,7 +425,7 @@ class Insert:
 
 
 
-    def insert_values(self, version: str, start_year: int = 2006, end_year: int = 2024):
+    def insert_values(self, stat_versions: list[str], start_year: int = 2006, end_year: int = 2024):
         """Insert all player statistics from CSV files into the database.
         
         Main entry point for bulk data insertion. Creates tables, inserts teams and games,
@@ -416,49 +440,53 @@ class Insert:
             
         Note:
             Uses batched commits for performance optimization. Processes files for
-            NFL league and all stat types defined in self.INFO.
+            NFL league and all stat types defined in INFO.
         """
         records_processed = 0
-        self.db.create_tables(self.TABLES)
+        self.db.create_tables(CREATE_TABLE)
         self.insert_teams()
         self.insert_games()
         self._team_id_cache.clear()
         self._game_id_cache.clear()
-        
+
         start_time = time.time()
-        for year in range(start_year, end_year + 1):
-            for league in ["NFL"]: #, "NCAA"]:
-                for info in self.INFO:
-                    csv_file = self.START_FILE.format(league=league, info=info, year=year)
-                    print(f"On file: {csv_file}")
+        for version in stat_versions:
+            if version != "0.0":
+                continue
 
-                    if not os.path.exists(csv_file):
-                        print(f"File does not exist {csv_file}")
-                        continue
+            for year in range(start_year, end_year + 1):
+                for league in ["NFL"]: #, "NCAA"]:
+                    for info in INFO:
+                        csv_file = START_FILE.format(league=league, info=info, year=year)
+                        print(f"On file: {csv_file}")
 
-                    with open(csv_file, "r", encoding="utf-8") as c:
-                        reader = csv.reader(c)
-                        
-                        # Begin transaction
-                        self.db.conn.execute("BEGIN TRANSACTION")
-                        
-                        for row in reader:
-                            self._process_stat_row(
-                                year=year,
-                                league=league,
-                                info=info,
-                                version=version,
-                                row=row,
-                            )
+                        if not os.path.exists(csv_file):
+                            print(f"File does not exist {csv_file}")
+                            continue
 
-                            records_processed += 1
-                            
-                            # Commit in batches
-                            if records_processed % self.cache == 0:
-                                self.db.conn.commit()
-                                self.db.conn.execute("BEGIN TRANSACTION")
-                        # Commit any remaining changes
-                        self.db.conn.commit()
+                        with open(csv_file, "r", encoding="utf-8") as c:
+                            reader = csv.reader(c)
+
+                            # Begin transaction
+                            self.db.conn.execute("BEGIN TRANSACTION")
+
+                            for row in reader:
+                                self._process_stat_row(
+                                    year=year,
+                                    league=league,
+                                    info=info,
+                                    version=version,
+                                    row=row,
+                                )
+
+                                records_processed += 1
+
+                                # Commit in batches
+                                if records_processed % self.cache == 0:
+                                    self.db.conn.commit()
+                                    self.db.conn.execute("BEGIN TRANSACTION")
+                            # Commit any remaining changes
+                            self.db.conn.commit()
 
         end_time = time.time()
         print(f"Time taken: {end_time - start_time} seconds")
@@ -466,6 +494,6 @@ class Insert:
 
 
 if __name__ == '__main__':
-    version = '0.0'
+    versions = ["0.0", "0.1", "1.0", "1.1"]
     insert = Insert()
-    insert.insert_values(version)
+    insert.insert_values(versions)
