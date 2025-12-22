@@ -1,16 +1,37 @@
 import os
 import csv
 import time
+from collections.abc import Callable
 
 from db import Database
 from const import *
 from queries import INSERT_START, CREATE_TABLE, INSERT_TABLE
 
 PLAYER_ID = 2
+TEAM_NAME_INDEX = 1
+OPPONENT_NAME_INDEX = 4
+GAME_YEAR_INDEX = 2
+GAME_WEEK_INDEX = 3
 
 
-
-class Insert():
+class Insert:
+    """Handles bulk insertion of football statistics into the database.
+    
+    Manages the insertion of teams, games, and player statistics from CSV files
+    into the database. Uses caching to optimize repeated lookups and batched
+    transactions for performance. Supports multiple stat types including passing,
+    receiving, rushing, blocking, defense, and coverage statistics.
+    
+    Attributes:
+        db: Database instance for executing queries
+        cache: Batch size for transaction commits (default: 100,000)
+        START_FILE: Template string for CSV file paths
+        INFO: List of stat types to process
+        TABLES: Dictionary of table creation queries
+        _team_id_cache: Cache for team name to team ID lookups
+        _game_id_cache: Cache for game ID lookups
+        _handlers: Dispatch table mapping stat types to handler functions
+    """
 
     def __init__(self) -> None:
         self.db = Database()
@@ -33,11 +54,205 @@ class Insert():
             "Run_Defense"
         ]
         self.TABLES = CREATE_TABLE
+        self._team_id_cache: dict[str, int | None] = {}
+        self._game_id_cache: dict[tuple[int, int, int, str], int | None] = {}
+        self._handlers: dict[str, Callable[[list[str], dict], None]] = self._build_handlers()
 
+    @staticmethod
+    def _normalize_week(week: int) -> int:
+        """Normalize week numbering to be human-friendly."""
+        return normalize_week(week)
+
+
+
+    def _insert_mapping(
+        self,
+        row: list[str],
+        base_args: dict,
+        *,
+        stat_type: str,
+        key: str,
+        mapping: dict,
+    ) -> None:
+        """Set stat metadata and insert one stat mapping into the DB."""
+        base_args["type"] = stat_type
+        base_args["key"] = key
+        self.add_into_db(row, mapping, base_args)
+
+
+    def _insert_nested(
+        self,
+        row: list[str],
+        base_args: dict,
+        *,
+        key: str,
+        nested: dict,
+        type_fmt: str,
+    ) -> None:
+        """Insert nested stat mappings (e.g. depth/area breakdowns)."""
+        for outer_key, inner in nested.items():
+            for inner_key, mapping in inner.items():
+                self._insert_mapping(
+                    row,
+                    base_args,
+                    stat_type=type_fmt.format(
+                        outer=outer_key.lower(),
+                        inner=inner_key.lower(),
+                    ),
+                    key=key,
+                    mapping=mapping,
+                )
+
+
+    def _build_handlers(self) -> dict[str, Callable[[list[str], dict], None]]:
+        """Build handler dispatch for INFO stat types."""
+
+        def handle_passing_pressure(row: list[str], a: dict) -> None:
+            for pre, mapping in PASSING_PRESSURE.items():
+                self._insert_mapping(
+                    row, a, stat_type=pre.lower(), key="passing", mapping=mapping
+                )
+
+        def handle_receiving_scheme(row: list[str], a: dict) -> None:
+            for scheme, mapping in RECEIVING_SCHEME.items():
+                self._insert_mapping(
+                    row, a, stat_type=scheme.lower(), key="receiving", mapping=mapping
+                )
+
+        def handle_coverage_scheme(row: list[str], a: dict) -> None:
+            for scheme, mapping in COVERAGE_SCHEME.items():
+                self._insert_mapping(
+                    row, a, stat_type=scheme.lower(), key="coverage", mapping=mapping
+                )
+
+        return {
+            "Passing": lambda row, a: self._insert_mapping(
+                row, a, stat_type="passing", key="passing", mapping=PASSING
+            ),
+            "Passing_Depth": lambda row, a: self._insert_nested(
+                row, a, key="passing", nested=PASSING_DEPTH, type_fmt="{outer}_{inner}"
+            ),
+            "Passing_Pressure": handle_passing_pressure,
+            "Receiving": lambda row, a: self._insert_mapping(
+                row, a, stat_type="receiving", key="receiving", mapping=RECEIVING
+            ),
+            "Receiving_Depth": lambda row, a: self._insert_nested(
+                row, a, key="receiving", nested=RECEIVING_DEPTH, type_fmt="{outer}_{inner}"
+            ),
+            "Receiving_Scheme": handle_receiving_scheme,
+            "Rushing": lambda row, a: self._insert_mapping(
+                row, a, stat_type="rushing", key="rushing", mapping=RUSHING
+            ),
+            "Blocking": lambda row, a: self._insert_mapping(
+                row, a, stat_type="blocking", key="blocking", mapping=BLOCKING
+            ),
+            "Pass_Blocking": lambda row, a: self._insert_mapping(
+                row,
+                a,
+                stat_type="pass_blocking",
+                key="pass_blocking",
+                mapping=PASS_BLOCKING,
+            ),
+            "Run_Blocking": lambda row, a: self._insert_mapping(
+                row,
+                a,
+                stat_type="run_blocking",
+                key="run_blocking",
+                mapping=RUN_BLOCKING,
+            ),
+            "Pass_Rush": lambda row, a: self._insert_mapping(
+                row, a, stat_type="pass_rush", key="pass_rush", mapping=PASS_RUSH
+            ),
+            "Run_Defense": lambda row, a: self._insert_mapping(
+                row, a, stat_type="run_defense", key="run_defense", mapping=RUN_DEFENSE
+            ),
+            "Coverage": lambda row, a: self._insert_mapping(
+                row, a, stat_type="coverage", key="coverage", mapping=COVERAGE
+            ),
+            "Coverage_Scheme": handle_coverage_scheme,
+        }
+
+
+    def _get_team_id(self, team_name: str) -> int:
+        """Return cached Team_ID for a team, raising if unknown."""
+        if team_name not in self._team_id_cache:
+            self._team_id_cache[team_name] = self.db.get_team_id(team_name)
+        team_id = self._team_id_cache[team_name]
+        if team_id is None:
+            raise ValueError(f"Unknown team: {team_name!r}")
+        return team_id
+
+
+    def _get_game_id(self, *, year: int, week: int, team_id: int, version: str) -> int | None:
+        """Return cached GAME_ID for (year, week, team_id, version).
+
+        Notes:
+            Some PFF player stat files include bye-week rows (cumulative snapshots)
+            where a team has no game for that week. In that case there is no
+            matching GAME_DATA row, and this returns None.
+        """
+        game_key = (year, week, team_id, version)
+        if game_key not in self._game_id_cache:
+            self._game_id_cache[game_key] = self.db.get_game_id(year, week, team_id, version)
+        return self._game_id_cache[game_key]
+
+
+    def _parse_player_id(self, raw_player_id: str) -> int:
+        """Parse player_id from CSV."""
+        try:
+            return int(raw_player_id)
+        except ValueError as e:
+            raise ValueError(f"Invalid player_id: {raw_player_id!r}") from e
+
+
+    def _process_stat_row(
+        self,
+        *,
+        year: int,
+        league: str,
+        info: str,
+        version: str,
+        row: list[str],
+    ) -> None:
+        """Process one CSV row and insert associated player + stat records."""
+        if row[1] == "player":
+            return
+
+        week = self._normalize_week(int(row[0]))
+        team_id = self._get_team_id(row[4])
+        game_id = self._get_game_id(year=year, week=week, team_id=team_id, version=version)
+        if game_id is None:
+            # Bye week / cumulative snapshot row: no corresponding game to attach stats to.
+            return
+
+        player_id = self._parse_player_id(row[2])
+        # Avoid per-row commits; the surrounding transaction handles batching.
+        self.db.insert_player(player_id, row[1], row[3], commit=False)
+
+        args = {
+            "game_id": game_id,
+            "team_id": team_id,
+            "year": year,
+            "type": None,
+            "league": league,
+            "version": version,
+            "key": None,
+        }
+        try:
+            handler = self._handlers[info]
+        except KeyError as e:
+            raise ValueError(f"Unhandled info type: {info}") from e
+        handler(row, args)
 
 
     def insert_teams(self) -> None:
-        with open("csv/teams.csv", "r") as c:
+        """Insert team data from CSV file into the TEAMS database table.
+        
+        Reads team information from csv/teams.csv and inserts records into the
+        TEAMS table. Skips header rows and uses INSERT OR IGNORE to avoid
+        duplicate entries.
+        """
+        with open("csv/teams.csv", "r", encoding="utf-8") as c:
             reader = csv.reader(c)
             for row in reader:
                 if row[1] == "League":
@@ -58,6 +273,13 @@ class Insert():
 
 
     def insert_games(self) -> None:
+        """Insert game data from CSV files into the GAME_DATA database table.
+        
+        Reads game statistics from CSV files (currently NFL games) and inserts them
+        into the GAME_DATA table. Processes team names to team IDs, converts values
+        to integers, and assigns sequential GAME_IDs. Uses batched commits for
+        performance optimization.
+        """
         # Get the next available GAME_ID
         self.db.cursor.execute("SELECT MAX(GAME_ID) FROM GAME_DATA")
         result = self.db.cursor.fetchone()
@@ -65,7 +287,7 @@ class Insert():
 
         leagues = {"NFL": "csv/nfl_games.csv"} #, "NCAA": "csv/ncaa_games.csv"}
         for i, (league, fil) in enumerate(leagues.items()):
-            with open(fil, "r") as c:
+            with open(fil, "r", encoding="utf-8") as c:
                 reader = csv.reader(c)
                 for row in reader:
                     if row[2] == "Team":
@@ -77,10 +299,12 @@ class Insert():
                     row.pop(5)
                     row.pop(1)
 
-                    team_id = self.db.get_team_id(row[1].strip())
-                    opp_id = self.db.get_team_id(row[4].strip())
-                    row[1] = team_id
-                    row[4] = opp_id
+                    team_id = self.db.get_team_id(row[TEAM_NAME_INDEX].strip())
+                    opp_id = self.db.get_team_id(row[OPPONENT_NAME_INDEX].strip())
+                    row[TEAM_NAME_INDEX] = team_id
+                    row[OPPONENT_NAME_INDEX] = opp_id
+                    # Normalize playoff week encoding (29-32) to sequential weeks (19-22).
+                    row[GAME_WEEK_INDEX] = str(self._normalize_week(int(row[GAME_WEEK_INDEX])))
 
                     # Convert all available values to integers
                     for i, r in enumerate(row):
@@ -112,7 +336,21 @@ class Insert():
 
 
 
-    def add_into_db(self, row: list, values: list, args: list):
+    def add_into_db(self, row: list, values: dict, args: dict):
+        """Process and insert player statistics into the database.
+        
+        Extracts game and player context from args, processes statistical values
+        from the row data according to the values mapping, and inserts the formatted
+        data into the appropriate database table.
+        
+        Args:
+            row: List containing player/stat data from CSV row
+            values: Dictionary mapping stat keys to column indices in row
+            args: Dictionary containing game_id, team_id, year, type, league, version, insert_key
+            
+        Raises:
+            Exception: If there's an error formatting a value during processing
+        """
         game_id, team_id, year, _type, league, version, insert_key = args.values()
         stats = [int(row[PLAYER_ID]), game_id, team_id, _type, year, league, version]
         for key, val in values.items():
@@ -137,13 +375,25 @@ class Insert():
                     print(f"The value {row[val]}")
                     print("#################################")
                     print("\n")
-                    raise f"There was an issue formatting {key} for val {row[val]}. ERROR: {e}"
+                    raise ValueError(
+                        f"There was an issue formatting {key} for val {row[val]}. ERROR: {e}"
+                    ) from e
         
         self.insert_query(insert_key, stats)
 
 
 
     def insert_query(self, key: str, result: list):
+        """Execute an INSERT query for the specified table with the given values.
+        
+        Formats an INSERT query using the table name from INSERT_TABLE[key],
+        creates parameter placeholders for all values, and executes the query
+        with the provided result list.
+        
+        Args:
+            key: Key that maps to a table name in INSERT_TABLE
+            result: List of values to insert into the table
+        """
         res = ', '.join(['?'] * len(result))
         query = INSERT_TABLE[key]
         query = query.format(start=INSERT_START, result=res)
@@ -152,10 +402,28 @@ class Insert():
 
 
     def insert_values(self, version: str, start_year: int = 2006, end_year: int = 2024):
+        """Insert all player statistics from CSV files into the database.
+        
+        Main entry point for bulk data insertion. Creates tables, inserts teams and games,
+        then processes player statistics from CSV files for the specified year range.
+        Handles multiple stat types including passing, receiving, rushing, blocking,
+        pass rush, run defense, and coverage statistics with their various breakdowns.
+        
+        Args:
+            version: Version identifier for the data (e.g., '0.0')
+            start_year: First year to process (default: 2006)
+            end_year: Last year to process (default: 2024)
+            
+        Note:
+            Uses batched commits for performance optimization. Processes files for
+            NFL league and all stat types defined in self.INFO.
+        """
         records_processed = 0
         self.db.create_tables(self.TABLES)
         self.insert_teams()
         self.insert_games()
+        self._team_id_cache.clear()
+        self._game_id_cache.clear()
         
         start_time = time.time()
         for year in range(start_year, end_year + 1):
@@ -168,90 +436,20 @@ class Insert():
                         print(f"File does not exist {csv_file}")
                         continue
 
-                    with open(csv_file, "r") as c:
+                    with open(csv_file, "r", encoding="utf-8") as c:
                         reader = csv.reader(c)
                         
                         # Begin transaction
                         self.db.conn.execute("BEGIN TRANSACTION")
                         
-                        for i, row in enumerate(reader):
-
-                            if row[1] == "player":
-                                continue
-
-                            week = int(row[0])
-                            team_name = row[4]
-                            team_id = self.db.get_team_id(team_name)
-                            game_id = self.db.get_game_id(year, week, team_id, version)
-
-                            player_id = row[2]
-                            player_name = row[1]
-                            pos = row[3]
-                            self.db.insert_player(player_id, player_name, pos)
-                            
-                            args = {"game_id": game_id, "team_id": team_id, "year": year, "type": None, "league": league, "version": version, "key": None}
-                            if info == "Passing":
-                                args["type"], args["key"] = "passing", "passing"
-                                self.add_into_db(row, PASSING, args)
-
-                            elif info == "Passing_Depth":
-                                for depth in PASSING_DEPTH:
-                                    for area in PASSING_DEPTH[depth]:
-                                        args["type"], args["key"] = f"{depth.lower()}_{area.lower()}", "passing"
-                                        self.add_into_db(row, PASSING_DEPTH[depth][area], args)
-
-                            elif info == "Passing_Pressure":
-                                for pre in PASSING_PRESSURE:
-                                    args["type"], args["key"] = pre.lower(), "passing"
-                                    self.add_into_db(row, PASSING_PRESSURE[pre], args)
-
-                            elif info == "Receiving":
-                                args["type"], args["key"] = "receiving", "receiving"
-                                self.add_into_db(row, RECEIVING, args)
-
-                            elif info == "Receiving_Depth":
-                                for depth in RECEIVING_DEPTH:
-                                    for area in RECEIVING_DEPTH[depth]:
-                                        args["type"], args["key"] = f"{depth.lower()}_{area.lower()}", "receiving"
-                                        self.add_into_db(row, RECEIVING_DEPTH[depth][area], args)
-
-                            elif info == "Receiving_Scheme":
-                                for scheme in RECEIVING_SCHEME:
-                                    args["type"], args["key"] = scheme.lower(), "receiving"
-                                    self.add_into_db(row, RECEIVING_SCHEME[scheme], args)
-
-                            elif info == "Rushing":
-                                args["type"], args["key"] = "rushing", "rushing"
-                                self.add_into_db(row, RUSHING, args)
-                            
-                            elif info == "Blocking":
-                                args["type"], args["key"] = "blocking", "blocking"
-                                self.add_into_db(row, BLOCKING, args)
-                            
-                            elif info == "Pass_Blocking": 
-                                args["type"], args["key"] = "pass_blocking", "pass_blocking"
-                                self.add_into_db(row, PASS_BLOCKING, args)
-                            
-                            elif info == "Run_Blocking":
-                                args["type"], args["key"] = "run_blocking", "run_blocking"
-                                self.add_into_db(row, RUN_BLOCKING, args)
-                            
-                            elif info == "Pass_Rush":
-                                args["type"], args["key"] = "pass_rush", "pass_rush"
-                                self.add_into_db(row, PASS_RUSH, args)
-
-                            elif info == "Run_Defense":
-                                args["type"], args["key"] = "run_defense", "run_defense"
-                                self.add_into_db(row, RUN_DEFENSE, args)
-                            
-                            elif info == "Coverage": 
-                                args["type"], args["key"] = "coverage", "coverage"
-                                self.add_into_db(row, COVERAGE, args)
-                                
-                            elif info == "Coverage_Scheme":
-                                for scheme in COVERAGE_SCHEME:
-                                    args["type"], args["key"] = scheme.lower(), "coverage"
-                                    self.add_into_db(row, COVERAGE_SCHEME[scheme], args)
+                        for row in reader:
+                            self._process_stat_row(
+                                year=year,
+                                league=league,
+                                info=info,
+                                version=version,
+                                row=row,
+                            )
 
                             records_processed += 1
                             
@@ -271,4 +469,3 @@ if __name__ == '__main__':
     version = '0.0'
     insert = Insert()
     insert.insert_values(version)
-

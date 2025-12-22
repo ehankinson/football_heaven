@@ -1,8 +1,11 @@
+import os
 import sqlite3
 
 class Database():
     
     def __init__(self) -> None:
+        # Ensure the db directory exists before connecting
+        os.makedirs("db", exist_ok=True)
         self.conn = sqlite3.connect("db/football.db")
         self.cursor = self.conn.cursor()
         # Add SQLite optimizations for bulk operations
@@ -82,7 +85,11 @@ class Database():
 
 
     def get_game_id(self, year: int, week: int, team_id: int, version: str) -> int:
-        self.cursor.execute("SELECT GAME_ID FROM GAME_DATA WHERE Year = ? AND Week = ? AND Team_ID = ? AND Version = ?", (year, week, team_id, version))
+        query = (
+            "SELECT GAME_ID FROM GAME_DATA "
+            "WHERE Year = ? AND Week = ? AND Team_ID = ? AND Version = ?"
+        )
+        self.cursor.execute(query, (year, week, team_id, version))
         result = self.cursor.fetchone()
         return result[0] if result is not None else None
 
@@ -95,13 +102,21 @@ class Database():
 
 
 
-    def insert_player(self, player_id: int, player_name: str, player_pos: str) -> None:
+    def insert_player(
+        self,
+        player_id: int,
+        player_name: str,
+        player_pos: str,
+        *,
+        commit: bool = True,
+    ) -> None:
         query = """
             INSERT OR IGNORE INTO PLAYERS (Player_ID, Player_Name, Player_Pos)
             VALUES (?, ?, ?)
         """
         self.cursor.execute(query, (player_id, player_name, player_pos))
-        self.conn.commit()
+        if commit:
+            self.conn.commit()
     
 
 

@@ -4,6 +4,7 @@ import time
 from db import DB
 from get_stats import GetStats
 from converter import Converter
+from const import PLAYOFF_WEEK_NORMALIZED_START
 
 TEAM = False
 PLAYER = True
@@ -65,7 +66,11 @@ class MakeVersion():
         passing_stats = self.converter.convert_results(self.stats.season_passing_game(PLAYER, args), PLAYER, stat)
 
         # updating the args to get the inverse team stats in the playoffs
-        args["start_week"], args["end_week"], args["team"] = 29, 32, opp_team_abr
+        args["start_week"], args["end_week"], args["team"] = (
+            PLAYOFF_WEEK_NORMALIZED_START,
+            PLAYOFF_WEEK_NORMALIZED_START + 3,
+            opp_team_abr,
+        )
         playoff_off = self.converter.convert_results(self.stats.season_passing_game(TEAM, args, side_of_ball=OFFENSE), TEAM, stat)
         playoff_def = self.converter.convert_results(self.stats.season_passing_game(TEAM, args, side_of_ball=DEFENSE), TEAM, stat)
 
@@ -273,7 +278,7 @@ class MakeVersion():
             for team in teams:
                 data = {
                     "start_week": 1,
-                    "end_week": 18 if version.endswith(".1") else 32,
+                    "end_week": 18 if version.endswith(".1") else PLAYOFF_WEEK_NORMALIZED_START + 3,
                     "start_year": 2023, #YEARS[league]["start"],
                     "end_year": 2023, #YEARS[league]["end"],
                     "type": None,

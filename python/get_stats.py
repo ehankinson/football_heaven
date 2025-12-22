@@ -241,7 +241,8 @@ if __name__ == "__main__":
     team = None
     year = 2012
     start_week = 1
-    end_week = 32
+    # weeks are normalized in this codebase (playoffs are 19-22)
+    end_week = 22
     stat_type = "passing"
     league = "NFL"
     version = "0.0"
