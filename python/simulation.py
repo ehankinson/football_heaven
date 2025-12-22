@@ -1,132 +1,438 @@
-import time
+
+import math
 import random
 
+from typing import Any
+from dataclasses import dataclass, field
+
 from bracket import Bracket
+from const import STAT_TYPES
 from get_stats import GetStats
 from converter import Converter
 
-
+ALL = False
 TEAM = False
 PRINT = True
+SINGLE = True
 OFFENSE = True
 STARTUP = True
 DEFENSE = False
 PER_GAME = True
 STATS = {"passing": True, "rushing": True, "receiving": True, "pass_blocking" : True, "run_blocking" : True, "pass_rush" : False, "run_defense" : False, "coverage" : False}
 
+@dataclass(slots=True)
+class Bin:
+    """Represents a single bin in a histogram.
+    
+    Attributes:
+        values: List of float values that fall into this bin
+        pct: Cumulative percentage up to and including this bin
+    """
+    values: list[float] = field(default_factory=list)
+    pct: float = 0.0
 
-class Team():
 
-    def __init__(self, team_abr: str, year: int, version: str):
-        self.year = year
-        self.version = version
-        self.team_abr = team_abr
-        self.get_stats = GetStats()
-        self.converter = Converter()
-        self.stats = {'offense': {}, 'defense': {}}
-        self.team_key = f"{team_abr}_{year}_{version}"
 
-        # Function Calls
+@dataclass(frozen=True, slots=True)
+class Histogram:
+    """Represents a histogram of values with bins and percentage mappings.
+    
+    Attributes:
+        bins: Dictionary mapping bin start values (float keys) to Bin objects
+        pct_to_bin: Dictionary mapping cumulative percentages to bin start values,
+                    used for random sampling based on probability distribution
+    """
+    bins: dict[float, Bin]
+    pct_to_bin: dict[float, float]
+
+
+
+@dataclass(slots=True)
+class Team:
+    """Represents a football team with its statistics and metadata.
+    
+    Automatically fetches offense and defense stats upon initialization.
+    
+    Attributes:
+        team_abr: Team abbreviation (e.g., 'CAR', 'ATL')
+        year: Season year
+        version: Version identifier for the data
+        get_stats: GetStats instance for fetching statistics
+        converter: Converter instance for data conversion
+        stats: Dictionary containing 'offense' and 'defense' statistics
+        team_key: Unique identifier combining team_abr, year, and version
+    """
+    team_abr: str
+    year: int
+    version: str
+    get_stats: GetStats = field(default_factory=GetStats, repr=False)
+    converter: Converter = field(default_factory=Converter, repr=False)
+    stats: dict[str, dict[str, Any]] = field(
+        default_factory=lambda: {"offense": {}, "defense": {}}, repr=False
+    )
+    team_key: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.team_key = f"{self.team_abr}_{self.year}_{self.version}"
         self._get_stats()
-
 
 
     def __repr__(self):
         return self.team_key
-    
+
 
 
     def _get_stats(self):
-        args = {"start_week": None, "end_week": None, "start_year": self.year, "end_year": self.year, "stat_type": None, "league": 'NFL', "version": self.version, "pos": None, "limit": None, "team": self.team_abr}
+        args = {
+            "start_week": None,
+            "end_week": None,
+            "start_year": self.year,
+            "end_year": self.year,
+            "stat_type": None,
+            "league": 'NFL',
+            "version": self.version,
+            "pos": None,
+            "limit": None,
+            "team": self.team_abr
+        }
         self.stats['offense'] = self.get_stats.get_total_stats(args, OFFENSE)
         self.stats['defense'] = self.get_stats.get_total_stats(args, DEFENSE)
+        self.stats['offense']['FP'] = {}
+        self.stats['defense']['FP'] = {}
+
+        off_scoring = self.stats["offense"]["scoring"]
+        def_scoring = self.stats["defense"]["scoring"]
+        for week, off_stats in off_scoring.items():
+            # Keep only weeks that exist for both sides.
+            if week not in def_scoring:
+                continue
+            self.stats["offense"]["FP"][off_stats["FP"]] = week
+            self.stats["defense"]["FP"][def_scoring[week]["FP"]] = week
+
+
+class Stats:
+    """Utility class for creating histograms from team or league statistics.
+    
+    Provides methods to bin values, find appropriate bins, and generate
+    histograms for simulation purposes.
+    """
 
 
 
-class Stats():
+    def bin_values(self, values: list[float]) -> dict[float, Bin]:
+        """Create bins for histogram by dividing the value range into equal-width intervals.
+        
+        The number of bins is determined by the square root of the number of values.
+        Each bin is initialized with an empty values list and a percentage of 0.
+        
+        Args:
+            values: List of float values to bin
+            
+        Returns:
+            Dictionary mapping bin start values (float keys) to Bin objects.
+        """
+        if not values:
+            raise ValueError("values must not be empty")
 
-    def __init__(self):
-        pass
-
-
-
-    def bin_values(self, values: list[int]) -> dict:
         # finding the min and max values of the list
         min_val, max_val = float('inf'), float('-inf')
         for val in values:
             min_val = min(min_val, val)
             max_val = max(max_val, val)
+
         # calculating the range of the list
         range_val = max_val - min_val
         # finding out the number of bins in the list
-        amount_bins = round(len(values) ** 0.5)
+        amount_bins = math.ceil(math.sqrt(len(values)))
+
         # calculating the bin width
-        bin_width = range_val / amount_bins
-        bins = {}
+        bins: dict[float, Bin] = {}
         add = min_val
+        bin_width = range_val / amount_bins
         for _ in range(amount_bins):
-            bins[add] = {'values': [], 'pct': 0}
+            bins[add] = Bin()
             add += bin_width
         return bins
-    
 
 
-    def find_bin(self, score: int, bins: list) -> int | None:
+
+    def find_bin(self, score: float, bins: list[float]) -> float | None:
+        """Return the bin key a score falls into.
+
+        Args:
+            score: Value to place into a bin.
+            bins: Sorted list of bin keys (bin upper boundaries / start keys used here).
+
+        Returns:
+            The selected bin key, or None if no bin matches.
+        """
         if score >= bins[-1]:
             return bins[-1]
 
         for key in bins:
             if score <= key:
                 return key
-            
+
         return None
-    
 
 
-    def get_histogram(self, team: Team, side_of_ball: str):
-        values = [team.stats[side_of_ball]['scoring'][week]['FP'] for week in team.stats[side_of_ball]['scoring']]
-        bins = self.bin_values(values)
 
-        for week in team.stats[side_of_ball]['scoring']:
-            bin_key = self.find_bin(team.stats[side_of_ball]['scoring'][week]['FP'], list(bins.keys()))
-            bins[bin_key]['values'].append(week)
+    def get_histogram(
+        self,
+        team: Team,
+        side_of_ball: str,
+        single: bool = True,
+        stats: dict | None = None
+    ) -> Histogram:
+        """Generate a histogram of values by binning data and calculating cumulative percentages.
+        
+        Args:
+            team: Team object to get values from
+            side_of_ball: 'offense' or 'defense' side of the ball
+            single: If True, use single team stats; if False, use league-wide stats
+            stats: Dictionary of stats to use when single=False
+            
+        Returns:
+            tuple: (bins dict, pct_dict) where bins contains bin data with values and percentages,
+                   and pct_dict maps cumulative percentages to bin keys
+        """
+        values = self._get_values(single=single, team=team, side_of_ball=side_of_ball, stats=stats)
+        bins: dict[float, Bin] = self.bin_values(values)
+
+        for val in values:
+            bin_key = self.find_bin(val, list(bins.keys()))
+            if bin_key is None:
+                continue
+            bins[bin_key].values.append(val)
 
         del_keys = []
-        total_pct = 0
-        pct_dict = {}
-        for bin_key in bins:
-            if len(bins[bin_key]['values']) == 0:
+        pct_to_bin: dict[float, float] = {}
+        total_pct = 0.0
+        for bin_key, bin_data in bins.items():
+            if len(bin_data.values) == 0:
                 del_keys.append(bin_key)
                 continue
-            
-            pct = len(bins[bin_key]['values']) / len(team.stats[side_of_ball]['scoring'])
-            bins[bin_key]['pct'] = pct + total_pct
-            pct_dict[pct + total_pct] = bin_key
+
+            pct = len(bin_data.values) / len(values)
+            bin_data.pct = pct + total_pct
+            pct_to_bin[pct + total_pct] = bin_key
             total_pct += pct
 
         for bin_key in del_keys:
             del bins[bin_key]
 
-        return bins, pct_dict
+        return Histogram(bins=bins, pct_to_bin=pct_to_bin)
+
+
+
+    def _get_values(
+        self,
+        single: bool = True,
+        team: Team | None = None,
+        side_of_ball: str | None = None,
+        stats: dict | None = None,
+    ) -> list[float]:
+        """Return the scoring FP values used to build a histogram.
+
+        When `single=True`, values are pulled from `team.stats[side_of_ball]`.
+        When `single=False`, values are aggregated across all teams in `stats`.
+        """
+        if single:
+            if team is None:
+                raise ValueError("team must be provided when single=True")
+            if side_of_ball is None:
+                raise ValueError("side_of_ball must be provided when single=True")
+
+            scoring = team.stats[side_of_ball]["scoring"]
+            return [scoring[week]["FP"] for week in scoring]
+
+        if stats is None:
+            raise ValueError("stats must be provided when single=False")
+
+        results: list[float] = []
+        for team_stats in stats.values():
+            scoring = team_stats["scoring"]
+            for week in scoring:
+                results.append(scoring[week]["FP"])
+
+        return results
 
 
 
 class Simulation:
+    """Main simulation engine for running football game and tournament simulations.
+    
+    Manages team statistics, histograms, and game outcomes. Supports both
+    team-only simulations (fast) and league-aware simulations (more detailed).
+    
+    Attributes:
+        teams: Set of team keys that have been initialized
+        stats: Stats instance for histogram generation
+        histograms: Dictionary mapping team keys to their histograms
+        team_stats: Dictionary tracking wins, losses, ties, and scores per team
+        league_histograms: Dictionary mapping years to league-wide histograms
+        get_stats: GetStats instance for fetching statistics
+    """
 
     def __init__(self):
         self.teams = set()
         self.stats = Stats()
         self.histograms = {}
         self.team_stats = {}
-        pass
+        self.league_histograms = {}
+        self.get_stats = GetStats()
 
 
 
-    def sim_game(self, team1: Team, team2: Team, startup: bool = True, print_score: bool = True) -> int | None:
+    def sim_game(
+        self,
+        team1: Team,
+        team2: Team,
+        startup: bool = True,
+        print_score: bool = True,
+        league_sim: bool = False,
+    ) -> int | None:
+        """Simulate a single game between two teams.
+
+        Optionally performs startup initialization (histograms, and league histogram
+        when `league_sim=True`), simulates a matchup, and updates win/loss/tie counts.
+
+        Args:
+            team1: First team
+            team2: Second team
+            startup: If True, initialize required histograms before simulating
+            print_score: Reserved for future detailed score printing (currently unused)
+            league_sim: If True, use league-aware simulation path; otherwise team-only
+
+        Returns:
+            1 if team1 wins, -1 if team2 wins, 0 for a tie.
+        """
         if startup:
-            self._sim_startup(team1)
-            self._sim_startup(team2)
+            self._sim_startup(team1, league_sim=league_sim)
+            self._sim_startup(team2, league_sim=league_sim)
 
+        winner = self._league_sim(team1, team2) if league_sim else self._team_sim(team1, team2)
+
+        if winner == 1:
+            self.team_stats[team1.team_key]['score']['wins'] += 1
+            self.team_stats[team2.team_key]['score']['losses'] += 1
+        elif winner == -1:
+            self.team_stats[team2.team_key]['score']['wins'] += 1
+            self.team_stats[team1.team_key]['score']['losses'] += 1
+        else:
+            self.team_stats[team1.team_key]['score']['ties'] += 1
+            self.team_stats[team2.team_key]['score']['ties'] += 1
+
+        return winner
+
+
+
+    def best_of(
+        self,
+        team1: Team,
+        team2: Team,
+        series_length: int,
+        print_result: bool = True,
+        league_sim: bool = False,
+    ) -> int | None:
+        """Simulate a best-of series between two teams.
+        
+        Plays games until one team reaches the required number of wins
+        (series_length // 2 + 1). Tracks wins for each team and optionally
+        prints the final result.
+        
+        Args:
+            team1: First team in the series
+            team2: Second team in the series
+            series_length: Total number of games in the series (e.g., 7 for best-of-7)
+            print_result: If True, print the series result
+            league_sim: If True, use league-aware simulation; if False, use team-only
+            
+        Returns:
+            1 if team1 wins the series, -1 if team2 wins the series
+        """
+        self._sim_startup(team1, league_sim=league_sim)
+        self._sim_startup(team2, league_sim=league_sim)
+
+        first_to = series_length // 2 + 1
+        wins = {'t1': 0, 't2': 0}
+        while wins['t1'] < first_to and wins['t2'] < first_to:
+            score = self.sim_game(
+                team1,
+                team2,
+                startup=False,
+                print_score=False,
+                league_sim=league_sim
+            )
+            if score == 1:
+                wins['t1'] += 1
+            elif score == -1:
+                wins['t2'] += 1
+
+        if print_result:
+            self._print_results(team1, team2, wins)
+
+        return 1 if wins['t1'] > wins['t2'] else -1
+
+
+
+    def sim_bracket(self, teams: list[Team], series_length: int) -> Team:
+        """Simulate a playoff bracket tournament.
+        
+        Creates a bracket from the given teams and simulates each match as a best-of
+        series. Tracks winners and losers through each round and updates team statistics
+        with the best round reached.
+        
+        Args:
+            teams: List of Team objects to participate in the tournament
+            series_length: Number of games in each best-of series
+            
+        Returns:
+            The winning team from the final round
+        """
+        bracket = Bracket(teams)
+        playoff_bracket = bracket.generate_bracket()
+
+        losers = []
+        winners = []
+        for i, rd in enumerate(playoff_bracket):
+            round_id = len(playoff_bracket) - i
+            for match in rd:
+                team1, team2 = match
+                print(f"Simulating {team1[1].team_key} vs {team2[1].team_key} in round {round_id}")
+                result = self.best_of(team1[1], team2[1], series_length, print_result=False)
+
+                winner, loser = (team1, team2) if result == 1 else (team2, team1)
+
+                print(f"Winner: {winner[1].team_key} - {result} - Loser: {loser[1].team_key}\n")
+                winners.append(winner)
+                losers.append(loser)
+                if round_id == 1:
+                    self.team_stats[winner[1].team_key]['score']['best_round'] = round_id - 1
+                    self.team_stats[loser[1].team_key]['score']['best_round'] = round_id
+                else:
+                    self.team_stats[loser[1].team_key]['score']['best_round'] = round_id
+
+            if i != len(playoff_bracket) - 1:
+                bracket.add_winners(winners, i + 1)
+
+        return winners[-1]
+
+
+
+    def _league_sim(self, team1: Team, team2: Team) -> int:
+        """League simulation path.
+
+        Note: The league-level simulation model isn't implemented yet; for now this
+        delegates to the team-only simulation so `league_sim=True` remains safe.
+        """
+        self._sim_startup(team1, league_sim=True)
+        self._sim_startup(team2, league_sim=True)
+        return self._team_sim(team1, team2)
+
+
+
+    def _team_sim(self, team1: Team, team2: Team) -> int:
         # team1 offense & defense
         team1_offense_game = self._get_game(team1, 'offense')
         team1_defense_game = self._get_game(team1, 'defense')
@@ -142,282 +448,114 @@ class Simulation:
         # Determine winner (1 for team1, -1 for team2, 0 for tie)
         winner = (team1_final_score > team2_final_score) - (team1_final_score < team2_final_score)
 
-        self.team_stats[team1.team_key]['offense']['score'] += team1_offense_game
-        self.team_stats[team2.team_key]['offense']['score'] += team2_offense_game
-        self.team_stats[team1.team_key]['defense']['score'] += team1_defense_game
-        self.team_stats[team2.team_key]['defense']['score'] += team2_defense_game
-
-        if winner == 1:
-            self.team_stats[team1.team_key]['score']['wins'] += 1
-            self.team_stats[team2.team_key]['score']['losses'] += 1
-        elif winner == -1:
-            self.team_stats[team2.team_key]['score']['wins'] += 1
-            self.team_stats[team1.team_key]['score']['losses'] += 1
-        else:
-            self.team_stats[team1.team_key]['score']['ties'] += 1
-            self.team_stats[team2.team_key]['score']['ties'] += 1
-
-        if print_score:
-            self._print_results({
-                'team1_score': team1_final_score,
-                'team2_score': team2_final_score
-            })
-            return None
+        self.team_stats[team1.team_key]['offense']['score'] += team1_final_score
+        self.team_stats[team2.team_key]['offense']['score'] += team2_final_score
+        self.team_stats[team1.team_key]['defense']['score'] += team2_final_score
+        self.team_stats[team2.team_key]['defense']['score'] += team1_final_score
 
         return winner
-    
-
-
-    def best_of(self, team1: Team, team2: Team, series_length: int, print_result: bool = True) -> int | None:
-        self._sim_startup(team1)
-        self._sim_startup(team2)
-
-        first_to = series_length // 2 + 1
-        wins = {'t1': 0, 't2': 0}
-        while wins['t1'] < first_to and wins['t2'] < first_to:
-            score = self.sim_game(team1, team2, startup=False, print_score=False)
-            if score == 1:
-                wins['t1'] += 1
-            elif score == -1:
-                wins['t2'] += 1
-
-        if print_result:
-            self._print_results(wins)
-
-        return 1 if wins['t1'] > wins['t2'] else -1
 
 
 
+    def _get_games(self, team: Team) -> tuple[dict, dict]:
+        offense_week = self._get_week(team, 'offense')
+        defense_week = self._get_week(team, 'defense')
+        off_stats, def_stats = {}, {}
+        for stat_type in STAT_TYPES:
+            off_stats[stat_type] = team.stats['offense'][stat_type][offense_week]
+            def_stats[stat_type] = team.stats['defense'][stat_type][defense_week]
 
-    def sim_bracket(self, teams: list[Team], series_length: int) -> None:
-        bracket = Bracket(teams)
-        playoff_bracket = bracket.generate_bracket()
-
-        winners = []
-        losers = []        
-        for i, rd in enumerate(playoff_bracket):
-            round_id = len(playoff_bracket) - i
-            for match in rd:
-                team1, team2 = match
-                print(f"Simulating {team1[1].team_key} vs {team2[1].team_key} in round {round_id}")
-                result = self.best_of(team1[1], team2[1], series_length, print_result=False)
-
-                if result == 1: # team1 won the series
-                    winner = team1
-                    loser = team2
-                elif result == -1: # team2 won the series
-                    winner = team2
-                    loser = team1
-                
-                print(f"Winner: {winner[1].team_key} Loser: {loser[1].team_key}\n")
-                winners.append(winner)
-                losers.append(loser)
-                if round_id == 1:
-                    self.team_stats[winner[1].team_key]['score']['best_round'] = round_id - 1
-                    self.team_stats[loser[1].team_key]['score']['best_round'] = round_id
-                else:
-                    self.team_stats[loser[1].team_key]['score']['best_round'] = round_id
-
-            if i != len(playoff_bracket) - 1:
-                bracket.add_winners(winners, i + 1)
-
-        return winners[-1]
-    
+        return off_stats, def_stats
 
 
-    def _sim_startup(self, team: Team) -> None:
+
+    def _print_results(self, team1: Team, team2: Team, result: dict[str, int]) -> None:
+        if result['t1'] > result['t2']:
+            winner, win_key = team1, 't1'
+            loser, loser_key = team2, 't2'
+        else:
+            winner, win_key = team2, 't2'
+            loser, loser_key = team1, 't1'
+        print(
+            f"Winner: {winner.team_key} - {result[win_key]} - "
+            f"{loser.team_key} - {result[loser_key]}"
+        )
+
+
+
+    def _sim_startup(self, team: Team, league_sim: bool = False) -> None:
         if team.team_key not in self.teams:
             self.teams.add(team.team_key)
             self._create_histogram(team)
-    
+            if league_sim:
+                self._create_league_histogram(team)
+
 
 
     def _create_histogram(self, team: Team):
         team_key = team.team_key
         self.histograms[team_key] = {}
-        for side_of_ball in team.stats:
-            bins, pct_dict = self.stats.get_histogram(team, side_of_ball)
-            self.histograms[team_key][side_of_ball] = {'bins': bins, 'pct_dict': pct_dict}
-        
-        self.team_stats[team_key] = {'score': {'wins': 0, 'losses': 0, 'ties': 0, 'best_round': None}, 'offense': {'score': 0}, 'defense': {'score': 0}}
+        for side_of_ball in ['offense', 'defense']:
+            histogram = self.stats.get_histogram(team, side_of_ball, SINGLE, None)
+            self.histograms[team_key][side_of_ball] = histogram
 
-    
+        self.team_stats[team_key] = {
+            'score': {
+                'wins': 0,
+                'losses': 0,
+                'ties': 0,
+                'best_round': None
+            },
+            'offense': {'score': 0},
+            'defense': {'score': 0}
+        }
 
-    def _get_game(self, team: Team, side_of_ball: str) -> int:
-        team_key = team.team_key
-        pcts = self.histograms[team_key][side_of_ball]['pct_dict']
+
+
+    def _create_league_histogram(self, team: Team):
+        if team.year not in self.league_histograms:
+            args = {
+                "start_week": None,
+                "end_week": None,
+                "start_year": team.year,
+                "end_year": team.year,
+                "stat_type": None,
+                "league": 'NFL',
+                "version": team.version,
+                "pos": None,
+                "limit": None,
+                "team": None
+            }
+            stats = self.get_stats.get_total_stats(args, OFFENSE, all_teams=True)
+            histogram = self.stats.get_histogram(team, 'offense', ALL, stats)
+            self.league_histograms[team.year] = histogram
+
+
+
+    def _get_week(self, team: Team, side_of_ball: str) -> int:
         pct = random.random()
-        games = None
+        candidate_weeks = None
+        team_key = team.team_key
+        histogram: Histogram = self.histograms[team_key][side_of_ball]
+        pcts = histogram.pct_to_bin
         for pct_key in pcts:
             if pct <= pct_key:
-                games = self.histograms[team_key][side_of_ball]['bins'][pcts[pct_key]]['values']
+                bin_key = pcts[pct_key]
+                bin_values = histogram.bins[bin_key]
+                candidate_weeks = bin_values.values
                 break
-        
-        if games is None:
+
+        if candidate_weeks is None:
             raise ValueError(f"No games found for {team_key} {side_of_ball}")
-        
-        week = random.choice(games)
+
+        fp_week = random.choice(candidate_weeks)
+        week = team.stats[side_of_ball]['FP'][fp_week]
+        return week
+
+
+
+    def _get_game(self, team: Team, side_of_ball: str) -> int:
+        week = self._get_week(team, side_of_ball)
         key = 'pts_for' if side_of_ball == 'offense' else 'pts_against'
         score = team.stats[side_of_ball]['game_data'][week][key]
         return score
-
-
-
-
-
-
-if __name__ == "__main__":
-    year = 2010
-    games = 70_000
-    version = "0.0"
-
-    print("Grabbing team stats...")
-    start_time = time.time()
-    teams = [
-        # (1, Team("SD" if year < 2017 else 'LAC', year, version)),
-        # (2, Team("BLT", year, version)),
-        # (3, Team("CHI", year, version)),
-        # (4, Team("NE", year, version)),
-        # (5, Team("IND", year, version)),
-        # (6, Team("NO", year, version)),
-        # (7, Team("PHI", year, version)),
-        # (8, Team("NYJ", year, version)),
-        # (9, Team("DAL", year, version)),
-        # (10, Team("DEN", year, version)),
-        # (11, Team("KC", year, version)),
-        # (12, Team("SEA", year, version)),
-        # (13, Team("JAX", year, version)),
-        # (14, Team("CIN", year, version)),
-        # (15, Team("PIT", year, version)),
-        # (16, Team("NYG", year, version)),
-        # (17, Team("TEN", year, version)),
-        # (18, Team("CAR", year, version)),
-        # (19, Team("SL" if year < 2016 else 'LA', year, version)),
-        # (20, Team("GB", year, version)),
-        # (21, Team("BUF", year, version)),
-        # (22, Team("ATL", year, version)),
-        # (23, Team("SF", year, version)),
-        # (24, Team("MIA", year, version)),
-        # (25, Team("MIN", year, version)),
-        # (26, Team("HST", year, version)),
-        # (27, Team("WAS", year, version)),
-        # (28, Team("ARZ", year, version)),
-        # (29, Team("CLV", year, version)),
-        # (30, Team("TB", year, version)),
-        # (31, Team("DET", year, version)),
-        # (32, Team("OAK" if year < 2020 else 'LV', year, version))
-(0, Team('NE', 2007, 0.0)),
-(1, Team('SEA', 2013, 0.0)),
-(2, Team('NE', 2012, 0.0)),
-(3, Team('BLT', 2019, 0.0)),
-(4, Team('NE', 2016, 0.0)),
-(5, Team('NE', 2010, 0.0)),
-(6, Team('BUF', 2021, 0.0)),
-(7, Team('DET', 2024, 0.0)),
-(8, Team('BLT', 2023, 0.0)),
-(9, Team('GB', 2011, 0.0)),
-(10, Team('DEN', 2013, 0.0)),
-(11, Team('NE', 2011, 0.0)),
-(12, Team('DAL', 2023, 0.0)),
-(13, Team('TB', 2020, 0.0)),
-(14, Team('SF', 2019, 0.0)),
-(15, Team('IND', 2007, 0.0)),
-(16, Team('SF', 2023, 0.0)),
-(17, Team('SF', 2022, 0.0)),
-(18, Team('NO', 2009, 0.0)),
-(19, Team('SD', 2006, 0.0)),
-(20, Team('NE', 2015, 0.0)),
-(21, Team('NE', 2014, 0.0)),
-(22, Team('GB', 2009, 0.0)),
-(23, Team('NE', 2019, 0.0)),
-(24, Team('PHI', 2022, 0.0)),
-(25, Team('DEN', 2012, 0.0)),
-(26, Team('NO', 2018, 0.0)),
-(27, Team('CAR', 2015, 0.0)),
-(28, Team('BLT', 2008, 0.0)),
-(29, Team('CHI', 2018, 0.0)),
-(30, Team('NE', 2013, 0.0)),
-(31, Team('SEA', 2015, 0.0)),
-(32, Team('KC', 2015, 0.0)),
-(33, Team('NO', 2011, 0.0)),
-(34, Team('PHI', 2017, 0.0)),
-(35, Team('PHI', 2024, 0.0)),
-(36, Team('NE', 2006, 0.0)),
-(37, Team('GB', 2014, 0.0)),
-(38, Team('MIN', 2009, 0.0)),
-(39, Team('NE', 2018, 0.0)),
-(40, Team('SF', 2011, 0.0)),
-(41, Team('BUF', 2022, 0.0)),
-(42, Team('GB', 2021, 0.0)),
-(43, Team('SEA', 2012, 0.0)),
-(44, Team('BUF', 2020, 0.0)),
-(45, Team('LA', 2017, 0.0)),
-(46, Team('PIT', 2010, 0.0)),
-(47, Team('GB', 2010, 0.0)),
-(48, Team('LA', 2018, 0.0)),
-(49, Team('TB', 2021, 0.0)),
-(50, Team('SF', 2013, 0.0)),
-(51, Team('ATL', 2016, 0.0)),
-(52, Team('CIN', 2022, 0.0)),
-(53, Team('KC', 2022, 0.0)),
-(54, Team('GB', 2007, 0.0)),
-(55, Team('DAL', 2019, 0.0)),
-(56, Team('HST', 2011, 0.0)),
-(57, Team('TEN', 2008, 0.0)),
-(58, Team('DAL', 2007, 0.0)),
-(59, Team('NE', 2009, 0.0)),
-(60, Team('TB', 2024, 0.0)),
-(61, Team('GB', 2016, 0.0)),
-(62, Team('GB', 2015, 0.0)),
-(63, Team('BUF', 2024, 0.0)),
-    ]
-
-    end_time = time.time()
-    print(f"Time taken to load data: {end_time - start_time} seconds\n")
-
-    sorted_teams = []
-    for i, team in enumerate(teams):
-        off_score = sum([team[1].stats['offense']['scoring'][week]['FP'] for week in team[1].stats['offense']['scoring']])
-        def_score = sum([team[1].stats['defense']['scoring'][week]['FP'] for week in team[1].stats['defense']['scoring']])
-        diff = off_score - def_score
-        sorted_teams.append((i, diff))
-    sorted_teams = sorted(sorted_teams, key=lambda x: x[1], reverse=True)
-    
-    new_teams = []
-    for i, (index, diff) in enumerate(sorted_teams):
-        team = teams[index]
-        adder = (i, team[1])
-        new_teams.append(adder)
-    teams = new_teams
-
-    print(f"Simulating Bracket... (Each series is a best of {games})")
-    start_time = time.time()
-    simulation = Simulation()
-    simulation.sim_bracket(teams, games)
-    end_time = time.time()
-    print(f"\nTime taken: {end_time - start_time} seconds")
-    print("Simulation complete")
-    
-    # Sort team_stats by best_round, wins, and offense-defense score difference
-    sorted_teams = []
-    for team_key, stats in simulation.team_stats.items():
-        # For sorting, convert None to a high number
-        best_round = stats['score']['best_round'] if stats['score']['best_round'] is not None else 999
-        wins = stats['score']['wins']
-        score_diff = stats['offense']['score'] - stats['defense']['score']
-        sorted_teams.append((team_key, stats, best_round, wins, score_diff))
-    
-    # Sort by best_round (ascending), wins (descending), score_diff (descending)
-    sorted_teams.sort(key=lambda x: (x[2], -x[3], -x[4]))
-    
-    # Create a new sorted dictionary
-    sorted_team_stats = {}
-    for team_key, stats, _, _, _ in sorted_teams:
-        sorted_team_stats[team_key] = stats
-
-    for i, team in enumerate(sorted_teams):
-        team_win_pct = team[1]['score']['wins'] / (team[1]['score']['wins'] + team[1]['score']['losses'] + team[1]['score']['ties'] * 0.5) * 100
-        team_score_diff = team[1]['offense']['score'] - team[1]['defense']['score']
-        team_best_round = team[1]['score']['best_round']
-        print(f"{i + 1}. {team[0]} {team_win_pct:.2f}% {team_score_diff} {team_best_round}")
-    

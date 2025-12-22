@@ -158,9 +158,9 @@ class GetStats():
 
 
 
-    def season_stats(self, args: dict, _type: str, is_player: bool, display: bool = False, order: bool = False, by_game: bool = False, opp: bool = False):
+    def season_stats(self, args: dict, _type: str, is_player: bool, display: bool = False, order: bool = False, by_game: bool = False, opp: bool = False, all_teams: bool = True):
         query = get_query(args, _type, is_player, by_game, opp)
-        results = self.converter.convert_results(self.db.call_query(query), is_player, _type)
+        results = self.converter.convert_results(self.db.call_query(query), is_player, _type, all_teams=all_teams)
 
         if not display:
             return results
@@ -198,34 +198,47 @@ class GetStats():
 
 
 
-    def get_total_stats(self, args: dict, is_offense: bool) -> list:
-        total_stats = {'scoring': {}}
+    def get_total_stats(self, args: dict, is_offense: bool, all_teams: bool = False) -> list:
+        total_stats = {}
         for stat in STATS:
-            if stat not in total_stats:
-                total_stats[stat] = {}
-
             if stat == "game_data":
                 query = game_data_query(args)
-                results = self.converter.convert_results(self.db.call_query(query), TEAM, stat)
-                total_stats[stat] = results
+                results = self.converter.convert_results(self.db.call_query(query), TEAM, stat, all_teams=all_teams)
+                if all_teams:
+                    for team in results:
+                        total_stats[team][stat] = results[team]
+                else:
+                    total_stats[stat] = results
                 continue
 
             args['stat_type'] = stat
             opp = STATS[stat] if is_offense else not STATS[stat]
-            results = self.season_stats(args, stat, TEAM, by_game=PER_GAME, opp=opp)
+            results = self.season_stats(args, stat, TEAM, by_game=PER_GAME, opp=opp, all_teams=all_teams)
 
-            total_stats[stat] = results
-            for week in results:
-                if week not in total_stats['scoring']:
-                    total_stats['scoring'][week] = {'FP': 0}
-
-                total_stats['scoring'][week]['FP'] += self._calculate_fantasy_points(total_stats[stat][week], "total", sub_stat=stat)
+            if all_teams:
+                for team in results:
+                    total_stats[team] = {}
+                    self._add_team_stats(total_stats[team], results[team], stat)
+            else:
+                self._add_team_stats(total_stats, results, stat)
 
         return total_stats
 
 
+
+    def _add_team_stats(self, total_stats: dict, results: dict, stat: str, ):
+        if 'scoring' not in total_stats:
+            total_stats['scoring'] = {}
+        total_stats[stat] = results
+        for week in results:
+            if week not in total_stats['scoring']:
+                total_stats['scoring'][week] = {'FP': 0}
+            total_stats['scoring'][week]['FP'] += self._calculate_fantasy_points(total_stats[stat][week], "total", sub_stat=stat)
+
+
+
 if __name__ == "__main__":
-    team = "CAR"
+    team = None
     year = 2012
     start_week = 1
     end_week = 32
@@ -238,3 +251,5 @@ if __name__ == "__main__":
     _type = stat_type
 
     stats = GetStats()
+    results = stats.get_total_stats(args, OFFENSE, all_teams=True)
+    print(results)

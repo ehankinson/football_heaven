@@ -18,14 +18,20 @@ class Converter():
 
 
 
-    def convert_results(self, results: tuple[tuple], is_player: bool, stat: str) -> list[dict]:
+    def convert_results(self, results: tuple[tuple], is_player: bool, stat: str, all_teams: bool = False) -> list[dict]:
         final_results = {}
         start = self.player_start_header if is_player else self.team_start_header
         header = start + self.headers[stat] if stat != 'game_data' else self.headers[stat]
             
         for result in results:
-            results = (dict(zip(header, result)))
-            final_results[results['week']] = results
+            result_dict = dict(zip(header, result))
+            week = result_dict['week']
+            
+            if all_teams:
+                team = result_dict['team']
+                final_results.setdefault(team, {})[week] = result_dict
+            else:
+                final_results[week] = result_dict
         return final_results
     
 

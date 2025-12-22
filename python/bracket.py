@@ -1,7 +1,4 @@
 import math
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.font_manager import FontProperties
 
 class Bracket:
 

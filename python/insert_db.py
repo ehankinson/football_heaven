@@ -3,7 +3,7 @@ import csv
 import time
 
 from db import Database
-from constants import *
+from const import *
 from queries import INSERT_START, CREATE_TABLE, INSERT_TABLE
 
 PLAYER_ID = 2
