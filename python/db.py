@@ -61,7 +61,14 @@ class Database():
 
 
 
-    def get_games(self, team_id: int = None, version: str = None, year: int = None, start_week: int = None, end_week: int = None) -> list[list]:
+    def get_games(
+        self,
+        team_id: int | None = None,
+        version: str | None = None,
+        year: int | None = None,
+        start_week: int | None = None,
+        end_week: int | None = None,
+    ) -> list[list]:
         conditions = []
         if team_id is not None:
             conditions.append(f"Team_ID = {team_id}")
@@ -84,7 +91,7 @@ class Database():
 
 
 
-    def get_game_id(self, year: int, week: int, team_id: int, version: str) -> int:
+    def get_game_id(self, year: int, week: int, team_id: int, version: str) -> int | None:
         query = (
             "SELECT GAME_ID FROM GAME_DATA "
             "WHERE Year = ? AND Week = ? AND Team_ID = ? AND Version = ?"
@@ -95,7 +102,7 @@ class Database():
 
 
 
-    def get_team_id(self, team: str) -> int:
+    def get_team_id(self, team: str) -> int | None:
         self.cursor.execute("SELECT Team_ID FROM TEAMS WHERE Team_Abbr = ?", (team,))
         result = self.cursor.fetchone()
         return result[0] if result is not None else None
@@ -120,7 +127,26 @@ class Database():
     
 
 
-    def create_tables(self, tables: dict):
+    def drop_index(self, index_name: str) -> None:
+        query = f"DROP INDEX IF EXISTS {index_name}"
+        self.cursor.execute(query)
+        self.conn.commit()
+
+
+    def create_index(self, query: str) -> None:
+        self.cursor.execute(query)
+        self.conn.commit()
+
+
+    def create_tables(self, tables: dict, indexes: dict | None = None) -> None:
         for name, query in tables.items():
             self.drop_table(name)
             self.create_table(query)
+
+        if not indexes:
+            return
+
+        for index_name, query in indexes.items():
+            # Index names live in the SQL too, but dropping by dict key keeps it explicit.
+            self.drop_index(index_name)
+            self.create_index(query)

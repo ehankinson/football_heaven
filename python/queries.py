@@ -695,6 +695,115 @@ CREATE_TABLE = {
 
 
 
+##########################################################################
+#                          INDEX QUERIES                                 #
+##########################################################################
+
+# These indexes are based on how `get_stats.py` filters and joins:
+# - Filters: YEAR range, WEEK range (via GAME_DATA), LEAGUE, VERSION, TYPE, team/opponent
+# - Joins: {STAT_TABLE}.Game_ID -> GAME_DATA.Game_ID, {STAT_TABLE}.Team_ID -> TEAMS.Team_ID,
+#          {STAT_TABLE}.Player_ID -> PLAYERS.Player_ID
+#
+# Notes:
+# - Primary keys already create indexes, but many PKs don't start with YEAR/LEAGUE/VERSION/TYPE,
+#   so we add additional indexes that match the query shapes.
+CREATE_INDEXES = {
+    # TEAMS lookups / filters
+    "idx_teams_abbr": "CREATE INDEX IF NOT EXISTS idx_teams_abbr ON TEAMS(Team_Abbr)",
+    "idx_teams_league": "CREATE INDEX IF NOT EXISTS idx_teams_league ON TEAMS(League)",
+
+    # PLAYERS filters
+    "idx_players_pos": "CREATE INDEX IF NOT EXISTS idx_players_pos ON PLAYERS(Player_Pos)",
+
+    # GAME_DATA lookup: used by Database.get_game_id() and queried frequently by week/year/team
+    "idx_game_data_year_week_team_version": (
+        "CREATE INDEX IF NOT EXISTS idx_game_data_year_week_team_version "
+        "ON GAME_DATA(Year, Week, Team_ID, Version)"
+    ),
+    "idx_game_data_team_year_week": (
+        "CREATE INDEX IF NOT EXISTS idx_game_data_team_year_week "
+        "ON GAME_DATA(Team_ID, Year, Week)"
+    ),
+    "idx_game_data_opp_year_week": (
+        "CREATE INDEX IF NOT EXISTS idx_game_data_opp_year_week "
+        "ON GAME_DATA(Opponent_ID, Year, Week)"
+    ),
+
+    # Stat tables: accelerate filters (YEAR/LEAGUE/VERSION/TYPE) + joins/grouping (Team/Player, Game_ID)
+    "idx_passing_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_passing_filters_team "
+        "ON PASSING(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_passing_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_passing_filters_player "
+        "ON PASSING(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_receiving_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_receiving_filters_team "
+        "ON RECEIVING(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_receiving_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_receiving_filters_player "
+        "ON RECEIVING(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_rushing_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_rushing_filters_team "
+        "ON RUSHING(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_rushing_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_rushing_filters_player "
+        "ON RUSHING(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_blocking_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_blocking_filters_team "
+        "ON BLOCKING(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_blocking_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_blocking_filters_player "
+        "ON BLOCKING(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_pass_blocking_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_pass_blocking_filters_team "
+        "ON PASS_BLOCKING(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_pass_blocking_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_pass_blocking_filters_player "
+        "ON PASS_BLOCKING(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_run_blocking_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_run_blocking_filters_team "
+        "ON RUN_BLOCKING(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_run_blocking_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_run_blocking_filters_player "
+        "ON RUN_BLOCKING(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_pass_rush_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_pass_rush_filters_team "
+        "ON PASS_RUSH(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_pass_rush_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_pass_rush_filters_player "
+        "ON PASS_RUSH(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_run_defense_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_run_defense_filters_team "
+        "ON RUN_DEFENSE(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_run_defense_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_run_defense_filters_player "
+        "ON RUN_DEFENSE(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+    "idx_coverage_filters_team": (
+        "CREATE INDEX IF NOT EXISTS idx_coverage_filters_team "
+        "ON COVERAGE(Year, League, Version, TYPE, Team_ID, Game_ID)"
+    ),
+    "idx_coverage_filters_player": (
+        "CREATE INDEX IF NOT EXISTS idx_coverage_filters_player "
+        "ON COVERAGE(Year, League, Version, TYPE, Player_ID, Game_ID)"
+    ),
+}
+
 INSERT_TABLE = {
     "passing": PASSING_INSERT,
     "receiving": RECEIVING_INSERT,
@@ -737,7 +846,7 @@ def _where_conditions(args: dict, select: str, table: str, opp: bool) -> str:
 
     if conditions:
         select += "WHERE " + " \nAND ".join(conditions)
-    
+
     return select
 
 

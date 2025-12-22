@@ -10,7 +10,7 @@ import csv
 import time
 from collections.abc import Callable
 
-from queries import INSERT_START, CREATE_TABLE, INSERT_TABLE
+from queries import INSERT_START, CREATE_INDEXES, CREATE_TABLE, INSERT_TABLE
 from const import (
     PASSING,
     RUSHING,
@@ -389,7 +389,7 @@ class Insert:
                         stats.append(new_value)
                     elif "depth_of_target" in ["depth_of_target", "avg_depth_of_tackle"]:
                         stats.append(float(row[val]))
-                    else: 
+                    else:
                         stats.append(int(row[val]))
                 except Exception as e:
                     print("\n")
@@ -402,7 +402,7 @@ class Insert:
                     raise ValueError(
                         f"There was an issue formatting {key} for val {row[val]}. ERROR: {e}"
                     ) from e
-        
+
         self.insert_query(insert_key, stats)
 
 
@@ -443,7 +443,7 @@ class Insert:
             NFL league and all stat types defined in INFO.
         """
         records_processed = 0
-        self.db.create_tables(CREATE_TABLE)
+        self.db.create_tables(CREATE_TABLE, CREATE_INDEXES)
         self.insert_teams()
         self.insert_games()
         self._team_id_cache.clear()
@@ -455,7 +455,7 @@ class Insert:
                 continue
 
             for year in range(start_year, end_year + 1):
-                for league in ["NFL"]: #, "NCAA"]:
+                for league in ["NFL"]:  # , "NCAA"]:
                     for info in INFO:
                         csv_file = START_FILE.format(league=league, info=info, year=year)
                         print(f"On file: {csv_file}")
@@ -485,6 +485,7 @@ class Insert:
                                 if records_processed % self.cache == 0:
                                     self.db.conn.commit()
                                     self.db.conn.execute("BEGIN TRANSACTION")
+
                             # Commit any remaining changes
                             self.db.conn.commit()
 
