@@ -1,9 +1,12 @@
-import time 
-from tqdm import tqdm
-from db import Database
+from dataclasses import dataclass
+from logging import Filter
+
+from queries import get_query
 from converter import Converter
+from query_args import QueryArgs
 from prettytable import PrettyTable
-from queries import get_query, game_data_query
+
+from db import Database
 
 OPP = True
 ASC = False
@@ -28,22 +31,81 @@ STATS = {
     "game_data": False
 }
 
-class GetStats():
+
+@dataclass(frozen=True, slots=True)
+class SeasonStatsOptions:
+    """Options to control season stats query/display behavior."""
+
+    display: bool = False
+    order: bool = False
+    by_game: bool = False
+    opp: bool = False
+    valid_stats: bool = True
+
+
+
+class GetStats:
+    """Retrieves and processes football statistics from the database.
+    
+    Provides methods to query player and team statistics, calculate fantasy points,
+    compute SPRS (Statistical Performance Rating System) scores, and format results
+    for display. Supports multiple stat types including passing, receiving, rushing,
+    blocking, pass rush, run defense, and coverage statistics.
+    
+    Attributes:
+        db: Database instance for executing queries
+        converter: Converter instance for transforming query results
+        start_header: Base column headers for output tables
+        headers: Dictionary mapping stat types to their column headers
+        max_key: Dictionary mapping stat types to their primary metric key
+    """
 
     def __init__(self) -> None:
         self.db = Database()
         self.converter = Converter()
         self.start_header = ["Pick", "Year", "VERSION", "TEAM", "POS", "GP"]
         self.headers = {
-            'passing': ['snaps', 'db', 'cmp', 'aim', 'att', 'yds', 'adot', 'td', 'int', '1d', 'btt', 'twp', 'drp', 'bat', 'hat', 'ta', 'spk', 'sk', 'scrm', 'pen', 'PASS', 'FP', 'SPRS'],
-            'receiving': ['snaps', 'wide', 'slot', 'in', 'rts', 'tgt', 'rec', 'yds', 'td', 'int', '1d', 'drp', 'ybc', 'yac', 'at', 'fum', 'ct', 'cr', 'pen', 'RECV', 'ROUTE', 'FP', 'SPRS'],
-            'rushing': ['snaps', 'att', 'yds', 'td', 'fum', '1d', 'avd', 'exp', 'ybc', 'yac', 'b_att', 'b_yds', 'des_yds', 'gap_att', 'zone_att', 'scrm', 'scrm_yds', 'pen', 'RUN', 'FUM', 'FP', 'SPRS'],
-            'blocking': ['snaps', 'p_snaps', 'r_snaps', 'lt_snaps', 'lg_snaps', 'ce_snaps', 'rg_snaps', 'rt_snaps', 'te_snaps', 'pen', 'PASS_BLOCK', 'RUN_BLOCK', 'FP', 'SPRS'],
-            'pass_blocking': ['snaps', 'hur', 'hit', 'sk', 'pr', 'PASS_BLOCK', 't_snaps', 't_hur', 't_hit', 't_sk', 't_pr', 'T_PASS_BLOCK', 'FP', 'SPRS'],
-            'run_blocking': ['snaps', 'gap_snaps', 'zone_snaps', 'pen', 'RUN_BLOCK', 'GAP_GRADES', 'ZONE_GRADES', 'FP', 'SPRS'],
-            'pass_rush': ['snaps_pp', 'snaps_pr', 'hur', 'hit', 'sk', 'pr', 'pass_rush', 'win', 'bat', 'pen', 'RUSH', 't_snaps_pp', 't_snaps_pr', 't_hur', 't_hit', 't_sk', 't_pr', 't_pass_rush', 't_win', 't_bat', 'T_RUSH', 'FP', 'SPRS'],
-            'run_defense': ['snaps', 'com', 'tkl', 'ast', 'stp', 'adot', 'm_tkl', 'ff', 'pen', 'RUN_DEF', 'TACK', 'FP', 'SPRS'],
-            'coverage': ['snaps', 'tgt', 'rec', 'yds', 'td', 'int', 'adot', 'ybc', 'yac', 'pbu', 'fi', 'd_int', 'COV', 'FP', 'SPRS']
+            'passing': [
+                'snaps', 'db', 'cmp', 'aim', 'att', 'yds', 'adot', 'td', 'int', '1d',
+                'btt', 'twp', 'drp', 'bat', 'hat', 'ta', 'spk', 'sk', 'scrm', 'pen',
+                'PASS', 'FP', 'SPRS'
+            ],
+            'receiving': [
+                'snaps', 'wide', 'slot', 'in', 'rts', 'tgt', 'rec', 'yds', 'td', 'int',
+                '1d', 'drp', 'ybc', 'yac', 'at', 'fum', 'ct', 'cr', 'pen', 'RECV',
+                'ROUTE', 'FP', 'SPRS'
+            ],
+            'rushing': [
+                'snaps', 'att', 'yds', 'td', 'fum', '1d', 'avd', 'exp', 'ybc', 'yac',
+                'b_att', 'b_yds', 'des_yds', 'gap_att', 'zone_att', 'scrm', 'scrm_yds',
+                'pen', 'RUN', 'FUM', 'FP', 'SPRS'
+            ],
+            'blocking': [
+                'snaps', 'p_snaps', 'r_snaps', 'lt_snaps', 'lg_snaps', 'ce_snaps',
+                'rg_snaps', 'rt_snaps', 'te_snaps', 'pen', 'PASS_BLOCK', 'RUN_BLOCK',
+                'FP', 'SPRS'
+            ],
+            'pass_blocking': [
+                'snaps', 'hur', 'hit', 'sk', 'pr', 'PASS_BLOCK', 't_snaps', 't_hur',
+                't_hit', 't_sk', 't_pr', 'T_PASS_BLOCK', 'FP', 'SPRS'
+            ],
+            'run_blocking': [
+                'snaps', 'gap_snaps', 'zone_snaps', 'pen', 'RUN_BLOCK', 'GAP_GRADES',
+                'ZONE_GRADES', 'FP', 'SPRS'
+            ],
+            'pass_rush': [
+                'snaps_pp', 'snaps_pr', 'hur', 'hit', 'sk', 'pr', 'pass_rush', 'win',
+                'bat', 'pen', 'RUSH', 't_snaps_pp', 't_snaps_pr', 't_hur', 't_hit',
+                't_sk', 't_pr', 't_pass_rush', 't_win', 't_bat', 'T_RUSH', 'FP', 'SPRS'
+            ],
+            'run_defense': [
+                'snaps', 'com', 'tkl', 'ast', 'stp', 'adot', 'm_tkl', 'ff', 'pen',
+                'RUN_DEF', 'TACK', 'FP', 'SPRS'
+            ],
+            'coverage': [
+                'snaps', 'tgt', 'rec', 'yds', 'td', 'int', 'adot', 'ybc', 'yac', 'pbu',
+                'fi', 'd_int', 'COV', 'FP', 'SPRS'
+            ]
         }
         self.max_key = {
             "passing": "db",
@@ -56,100 +118,201 @@ class GetStats():
             "run_defense": "snaps",
             "coverage": "snaps"
         }
-            
-            
 
-    def _calculate_fantasy_points(self, result: dict, stat: str, sub_stat: str = None) -> int:
+
+
+    def _calculate_fantasy_points(self, result: dict, stat: str, sub_stat: str | None = None) -> int:
         fp = 0
-        stats = None
+        stat_weights = None
         match stat:
             case "passing":
-                stats = {"yds": 0.05, "td": 6, "int": -6, "1d": 0.5, "btt": 3, "twp": -3, "sk": -1.5, "pen": -3}
+                stat_weights = {
+                    "yds": 0.05, "td": 6, "int": -6, "1d": 0.5,
+                    "btt": 3, "twp": -3, "sk": -1.5, "pen": -3
+                }
             case "receiving":
-                stats = {"rec": 0.5, "td": 6, "int": -6, "1d": 0.5, "drp": 3, "ybc": 0.0875, "yac": 0.1625, "at": 2, "fum": -6, "cr": 0.5, "pen": -3}      
+                stat_weights = {
+                    "rec": 0.5, "td": 6, "int": -6, "1d": 0.5, "drp": 3,
+                    "ybc": 0.0875, "yac": 0.1625, "at": 2, "fum": -6, "cr": 0.5, "pen": -3
+                }
             case "rushing":
-                stats = {"td": 6, "fum": -6, "1d": 0.5, "avd": 0.75, "exp": 1.5, "ybc": 0.0875, "yac": 0.1625, "pen": -3}
+                stat_weights = {
+                    "td": 6, "fum": -6, "1d": 0.5, "avd": 0.75, "exp": 1.5,
+                    "ybc": 0.0875, "yac": 0.1625, "pen": -3
+                }
             case "pass_blocking":
-                stats = {"hur": -0.25, "hit": -0.3125, "sk": -0.375, "pr": -0.1875, "t_hur": -0.5, "t_hit": -0.625, "t_sk": -0.75, "t_pr": -0.375}
+                stat_weights = {
+                    "hur": -0.25, "hit": -0.3125, "sk": -0.375, "pr": -0.1875,
+                    "t_hur": -0.5, "t_hit": -0.625, "t_sk": -0.75, "t_pr": -0.375
+                }
             case "pass_rush":
-                stats = {"hur": 0.25, "hit": 0.3125, "sk": 0.375, "pr": 0.1875, "win": 0.4375, "pen": -3, "t_hur": 0.5, "t_hit": 0.625, "t_sk": 0.75, "t_pr": 0.375, "t_win": 0.875}
+                stat_weights = {
+                    "hur": 0.25, "hit": 0.3125, "sk": 0.375, "pr": 0.1875, "win": 0.4375,
+                    "pen": -3, "t_hur": 0.5, "t_hit": 0.625, "t_sk": 0.75, "t_pr": 0.375,
+                    "t_win": 0.875
+                }
             case "run_defense":
-                stats = {"tkl": 1.25, "ast": 0.75, "stop": 2.25, "m_tkl": -1, "ff": 3, "pen": -3}
+                stat_weights = {
+                    "tkl": 1.25, "ast": 0.75, "stop": 2.25, "m_tkl": -1, "ff": 3, "pen": -3
+                }
             case "coverage":
-                stats = {"rec": -0.5, "td": -6, "int": 6, "ybc": -0.0875, "yac": -0.1625, "pbu": 3, "fi": 2.5, "d_int": 1.5}
+                stat_weights = {
+                    "rec": -0.5, "td": -6, "int": 6, "ybc": -0.0875, "yac": -0.1625,
+                    "pbu": 3, "fi": 2.5, "d_int": 1.5
+                }
             case "total":
                 results = {
                     "passing": {"td": 6, "int": -6, "1d": 0.5, "btt": 3, "twp": -3, "pen": -3},
-                    "rushing": {"td": 6, "fum": -6, "1d": 0.5, "avd": 0.75, "exp": 1.5, "ybc": 0.0875, "yac": 0.1625, "pen": -3},
-                    "receiving": {"rec": 0.5, "drp": 3, "ybc": 0.0875, "yac": 0.1625, "at": 2, "fum": -6, "cr": 0.5, "pen": -3},
-                    "pass_blocking": {"hur": -0.25, "hit": -0.3125, "sk": -0.375, "pr": -0.1875, "t_hur": -0.5, "t_hit": -0.625, "t_sk": -0.75, "t_pr": -0.375},
+                    "rushing": {
+                        "td": 6, "fum": -6, "1d": 0.5, "avd": 0.75, "exp": 1.5,
+                        "ybc": 0.0875, "yac": 0.1625, "pen": -3
+                    },
+                    "receiving": {
+                        "rec": 0.5, "drp": 3, "ybc": 0.0875, "yac": 0.1625, "at": 2,
+                        "fum": -6, "cr": 0.5, "pen": -3
+                    },
+                    "pass_blocking": {
+                        "hur": -0.25, "hit": -0.3125, "sk": -0.375, "pr": -0.1875,
+                        "t_hur": -0.5, "t_hit": -0.625, "t_sk": -0.75, "t_pr": -0.375
+                    },
                     "pass_rush": {"win": -0.4375, "pen": 3, "t_win": -0.875},
-                    "run_defense": {"tkl": -0.3125, "ast": -0.1875, "stp": -0.5625, "m_tkl": 0.125, "ff": -0.75, "pen": 0.75},
+                    "run_defense": {
+                        "tkl": -0.3125, "ast": -0.1875, "stp": -0.5625, "m_tkl": 0.125,
+                        "ff": -0.75, "pen": 0.75
+                    },
                     "coverage": {"pbu": -3, "fi": -2.5, "d_int": -1.5}
                 }
                 if sub_stat not in results:
                     return 0
-                stats = results[sub_stat]
+                stat_weights = results[sub_stat]
 
-        if stats is not None:
-            for stat, mul in stats.items():
-                fp += result[stat] * mul
+        if stat_weights is not None:
+            for stat_key, mul in stat_weights.items():
+                fp += result[stat_key] * mul
 
         return fp
-    
 
 
-    def calculate_sprs(self, headers: list, results: list, _type: str) -> float:
-        match _type:
+
+    def calculate_sprs(self, result: dict, stat_type: str, per_week: bool) -> float:
+        """Calculate SPRS (Statistical Performance Rating System) score for a stat type.
+        
+        Computes a weighted composite score based on fantasy points per game and
+        position-specific grade metrics. The weighting formula varies by stat type
+        to reflect the relative importance of different performance aspects.
+        
+        Args:
+            headers: List of column header names corresponding to results indices
+            results: List of numeric values matching the headers order
+            _type: Stat type identifier (e.g., 'passing', 'receiving', 'rushing')
+            
+        Returns:
+            SPRS score rounded to 3 decimal places
+            
+        Raises:
+            KeyError: If required header keys are missing from headers list
+        """
+        divisor = result["Week"] if per_week else result["GP"]
+        match stat_type:
             case "passing":
-                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.45 + results[headers.index("Grade")] * 0.55, 3)
+                fp_per_gp = result["FP"] / divisor
+                grade = result["PASS"]
+                return round(fp_per_gp * 0.45 + grade * 0.55, 3)
             case "receiving":
-                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.4 + results[headers.index("RECV")] * 0.5 + results[headers.index("ROUTE")] * 0.1, 3)
+                fp_per_gp = result["FP"] / divisor
+                recv = result["RECV"] if result["RECV"] is not None else 0
+                route = result["ROUTE"] if result["ROUTE"] is not None else 0
+                return round(fp_per_gp * 0.4 + recv * 0.5 + route * 0.1, 3)
             case "rushing":
-                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.4 + results[headers.index("RUN")] * 0.5 + results[headers.index("FUM")] * 0.1, 3)
+                fp_per_gp = result["FP"] / divisor
+                run = result["RUN"] if result["RUN"] is not None else 0
+                fum = result["FUM"] if result["FUM"] is not None else 0
+                return round(fp_per_gp * 0.4 + run * 0.5 + fum * 0.1, 3)
             case "blocking":
-                if results[headers.index("PASS_BLOCK")] is None:
-                    results[headers.index("PASS_BLOCK")] = 0
+                if result["PASS_BLOCK"] is None:
+                    result["PASS_BLOCK"] = 0
 
-                if results[headers.index("RUN_BLOCK")] is None:
-                    results[headers.index("RUN_BLOCK")] = 0
+                if result["RUN_BLOCK"] is None:
+                    result["RUN_BLOCK"] = 0
 
-                return round(results[headers.index("PASS_BLOCK")] * 0.55 + results[headers.index("RUN_BLOCK")] * 0.45, 3)
+                pass_block = result["PASS_BLOCK"]
+                run_block = result["RUN_BLOCK"]
+                return round(pass_block * 0.55 + run_block * 0.45, 3)
             case "pass_blocking":
-                if results[headers.index("T_PASS_BLOCK")] is None:
-                    results[headers.index("T_PASS_BLOCK")] = 0
+                if result["T_PASS_BLOCK"] is None:
+                    result["T_PASS_BLOCK"] = 0
 
-                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.4 + results[headers.index("PASS_BLOCK")] * 0.325 + results[headers.index("T_PASS_BLOCK")] * 0.275, 3)
+                fp_per_gp = result["FP"] / divisor
+                pass_block = result["PASS_BLOCK"]
+                t_pass_block = result["T_PASS_BLOCK"]
+                return round(fp_per_gp * 0.4 + pass_block * 0.325 + t_pass_block * 0.275, 3)
             case "run_blocking":
-                gap_pct = results[headers.index("GAP_SNAPS")] / results[headers.index("Snaps")]
-                if results[headers.index("GAP_GRADES")] is None:
-                    results[headers.index("GAP_GRADES")] = 0
+                gap_pct = result["GAP_SNAPS"] / result["Snaps"]
+                if result["GAP_GRADES"] is None:
+                    result["GAP_GRADES"] = 0
 
-                if results[headers.index("ZONE_GRADES")] is None:
-                    results[headers.index("ZONE_GRADES")] = 0
+                if result["ZONE_GRADES"] is None:
+                    result["ZONE_GRADES"] = 0
 
-                return round(results[headers.index("GAP_GRADES")] * gap_pct + results[headers.index("ZONE_GRADES")] * (1 - gap_pct), 3)
+                gap_grades = result["GAP_GRADES"]
+                zone_grades = result["ZONE_GRADES"]
+                return round(gap_grades * gap_pct + zone_grades * (1 - gap_pct), 3)
             case "pass_rush":
-                if results[headers.index("T_RUSH")] is None:
-                    results[headers.index("T_RUSH")] = 0
-                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.4 + results[headers.index("T_RUSH")] * 0.25 + results[headers.index("RUSH")] * 0.25, 3)
+                if result["T_RUSH"] is None:
+                    result["T_RUSH"] = 0
+                return round(
+                    (result["FP"] / divisor * 0.4)
+                    + (result["T_RUSH"] * 0.25)
+                    + (result["RUSH"] * 0.25),
+                    3
+                )
             case "run_defense":
-                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.3 + results[headers.index("RUN_DEF")] * 0.35 + results[headers.index("TACK")] * 0.35, 3)
+                run_def = result["RUN_DEF"] if result["RUN_DEF"] is not None else 0
+                tack = result["TACK"] if result["TACK"] is not None else 0
+                return round(
+                    (result["FP"] / divisor * 0.3)
+                    + (run_def * 0.35)
+                    + (tack * 0.35),
+                    3
+                )
             case "coverage":
-                return round((results[headers.index("FP")] / results[headers.index("GP")]) * 0.35 + results[headers.index("COV")] * 0.65, 3)
+                return round(result["FP"] / divisor * 0.35 + result["COV"] * 0.65, 3)
+            case _:
+                # Unknown stat type: default to 0.0 so all control paths return.
+                return 0.0
 
 
 
-    def _print_pretty_table(self, headers: list[str], results: list[list], order: bool, sort_by: str = None, limit: int = None) -> None:
+    def _print_pretty_table(
+        self,
+        args: QueryArgs,
+        headers: list[str],
+        results: list[list],
+        order: bool,
+        sort_by: str | None = None,
+    ) -> None:
         table = PrettyTable()
         table.field_names = headers
 
         if sort_by is not None and sort_by not in headers:
-            raise ValueError(f"Sort by column '{sort_by}' not found in headers, Please choose from: {headers}")
+            raise ValueError(
+                f"Sort by column '{sort_by}' not found in headers, "
+                f"Please choose from: {headers}"
+            )
 
         if sort_by is not None:
             results.sort(key=lambda x: x[headers.index(sort_by)], reverse=order)
 
+        max_key = self.max_key[args.stat_type] if args.stat_type is not None else None
+        if max_key is None:
+            raise ValueError(f"Invalid stat type: {args.stat_type}")
+
+        max_key_index = headers.index(max_key)
+        max_value = max(x[max_key_index] for x in results)
+        threshold = max_value * 0.25
+        results = [x for x in results if x[max_key_index] >= threshold]
+
+        limit = args.limit if args.limit is not None else None
         if limit is not None:
             results = results[:limit]
 
@@ -158,99 +321,82 @@ class GetStats():
 
 
 
-    def season_stats(self, args: dict, _type: str, is_player: bool, display: bool = False, order: bool = False, by_game: bool = False, opp: bool = False, all_teams: bool = True):
-        query = get_query(args, _type, is_player, by_game, opp)
-        results = self.converter.convert_results(self.db.call_query(query), is_player, _type, all_teams=all_teams)
+    def season_stats(
+        self,
+        is_player: bool,
+        args: QueryArgs,
+        options: SeasonStatsOptions | None = None,
+    ) -> list[list]:
+        """Retrieve and optionally display season statistics for players or teams.
 
-        if not display:
-            return results
-        
-        header = self.start_header + self.headers[_type]
-        if is_player:
-            header[0] = "Player"
-            if by_game:
-                header.insert(5, "Week")
-        else:
-            header[0] = "Team"
-            [header.pop(i) for i in [4, 3]]
-            if by_game:
-                header.insert(3, "Week")
+        Args:
+            args: Query arguments (use `QueryArgs`; dicts are no longer supported here).
+            is_player: Whether to retrieve player or team statistics.
+            options: Optional container for the above flags (preferred for new call sites).
 
-        # att = header.index(self.max_key[_type])
-        # max_att = max(result[att] for result in results)
+        Returns:
+            List of dictionaries with statistics if display=False, otherwise list of lists
+            with formatted results including fantasy points and SPRS scores.
+        """
+        opts = options or SeasonStatsOptions()
+        opp = opts.opp
+        order = opts.order
+        display = opts.display
+        by_game = opts.by_game
+
+        if args.stat_type is None:
+            raise ValueError("QueryArgs.stat_type must be set")
+        stat_type = args.stat_type
+
+        query = get_query(args, is_player, by_game, opp)
+        query_results = self.db.call_query(query)
+        results = self.converter.convert_results(
+            query_results, is_player, stat_type, by_game
+        )
+
+        if len(results) == 0:
+            raise ValueError("No results found")
+
+        header = list(results[0].keys())
 
         final_results = []
-        for week in results:
+        header.extend(['FP', 'SPRS'])
+        for result in results:
+            result['FP'] = round(self._calculate_fantasy_points(result, stat_type), 2)
+            result['SPRS'] = round(self.calculate_sprs(result, stat_type, by_game), 3)
 
-            # result = list(result)
-            results[week]['fp'] = round(self._calculate_fantasy_points(results[week], _type), 2)
-            results[week]['sprs'] = 0
-            # result.append(round(self.calculate_sprs(header, result, _type), 3))
+            final_results.append(list(result.values()))
 
-            # if not result[att] >= max_att * 0.25:
-            #     result[-1] = result[-1] / 4
-
-            final_results.append(list(results[week].values()))
-
-        self._print_pretty_table(header, final_results, sort_by="FP", order=order, limit=limit)
+        if display:
+            self._print_pretty_table(
+                args,
+                header,
+                final_results,
+                sort_by="SPRS",
+                order=order,
+            )
 
         return final_results
 
 
 
-    def get_total_stats(self, args: dict, is_offense: bool, all_teams: bool = False) -> list:
-        total_stats = {}
-        for stat in STATS:
-            if stat == "game_data":
-                query = game_data_query(args)
-                results = self.converter.convert_results(self.db.call_query(query), TEAM, stat, all_teams=all_teams)
-                if all_teams:
-                    for team in results:
-                        total_stats[team][stat] = results[team]
-                else:
-                    total_stats[stat] = results
-                continue
-
-            args['stat_type'] = stat
-            opp = STATS[stat] if is_offense else not STATS[stat]
-            results = self.season_stats(args, stat, TEAM, by_game=PER_GAME, opp=opp, all_teams=all_teams)
-
-            if all_teams:
-                for team in results:
-                    total_stats[team] = {}
-                    self._add_team_stats(total_stats[team], results[team], stat)
-            else:
-                self._add_team_stats(total_stats, results, stat)
-
-        return total_stats
-
-
-
-    def _add_team_stats(self, total_stats: dict, results: dict, stat: str, ):
-        if 'scoring' not in total_stats:
-            total_stats['scoring'] = {}
-        total_stats[stat] = results
-        for week in results:
-            if week not in total_stats['scoring']:
-                total_stats['scoring'][week] = {'FP': 0}
-            total_stats['scoring'][week]['FP'] += self._calculate_fantasy_points(total_stats[stat][week], "total", sub_stat=stat)
-
-
-
 if __name__ == "__main__":
-    team = None
-    year = 2012
-    start_week = 1
-    # weeks are normalized in this codebase (playoffs are 19-22)
-    end_week = 22
-    stat_type = "passing"
-    league = "NFL"
-    version = "0.0"
-    pos = None
-    limit = 50
-    args = {"start_week": start_week, "end_week": end_week, "start_year": year, "end_year": year, "stat_type": stat_type, "league": league, "version": version, "pos": pos, "limit": limit, "team": team}
-    _type = stat_type
+    ARGUMENTS = QueryArgs(
+        start_week=1,
+        end_week=22,
+        start_year=2006,
+        end_year=2024,
+        stat_type="pass_rush",
+        league="NFL",
+        version="0.0",
+        pos=None,
+        limit=50,
+        team=None,
+    )
 
     stats = GetStats()
-    results = stats.get_total_stats(args, OFFENSE, all_teams=True)
-    print(results)
+    res = stats.season_stats(
+        is_player=PLAYER,
+        args=ARGUMENTS,
+        options=SeasonStatsOptions(display=True, by_game=False, order=DESC),
+    )

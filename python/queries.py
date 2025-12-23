@@ -1,3 +1,6 @@
+from typing import Any, Mapping
+
+from query_args import QueryArgs
 START = """
     Player_ID INT,
     GAME_ID INT,
@@ -818,8 +821,21 @@ INSERT_TABLE = {
 
 
 
-def _where_conditions(args: dict, select: str, table: str, opp: bool) -> str:
-    start_week, end_week, start_year, end_year, stat_type, league, version, pos, limit, team = args.values()
+def _coerce_query_args(args: Mapping[str, Any] | QueryArgs) -> QueryArgs:
+    return args if isinstance(args, QueryArgs) else QueryArgs.from_mapping(args)
+
+
+def _where_conditions(args: Mapping[str, Any] | QueryArgs, select: str, table: str, opp: bool) -> str:
+    q = _coerce_query_args(args)
+    start_week = q.start_week
+    end_week = q.end_week
+    start_year = q.start_year
+    end_year = q.end_year
+    stat_type = q.stat_type
+    league = q.league
+    version = q.version
+    pos = q.pos
+    team = q.team
 
     conditions = []
     if version is not None:
@@ -851,21 +867,48 @@ def _where_conditions(args: dict, select: str, table: str, opp: bool) -> str:
 
 
 
-def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False, opp: bool = False) -> str:
-    query, table = SUM_TABLE[_type].values()
+def get_query(
+    args: QueryArgs,
+    is_player: bool,
+    by_game: bool = False,
+    opp: bool = False,
+) -> str:
+    """Build a SQL query for retrieving player or team statistics.
+
+    Constructs a SELECT query that aggregates statistics from the appropriate
+    stat table (passing, receiving, rushing, etc.) with joins to GAME_DATA,
+    TEAMS, and PLAYERS tables. Applies filtering conditions from QueryArgs
+    and groups results appropriately.
+
+    Args:
+        args: QueryArgs instance containing filter parameters (year, week, team, etc.).
+            Must have stat_type set to a valid stat type.
+        is_player: Whether to query player statistics (True) or team statistics (False).
+        by_game: Whether to return per-game/week stats (True) or season totals (False).
+        opp: Whether to filter by opponent team instead of the team itself.
+
+    Returns:
+        Complete SQL SELECT query string ready for execution.
+
+    Raises:
+        ValueError: If args.stat_type is None or not set.
+    """
+    stat_type = args.stat_type if args.stat_type is not None else None
+    if stat_type is None:
+        raise ValueError("QueryArgs.stat_type must be set")
+
+    query, table = SUM_TABLE[stat_type].values()
     if by_game:
-        select = SINGLE_TEAM_SELECT if is_player else SINGLE_TEAM_SELECT
+        select = SINGLE_PLAYER_SELECT if is_player else SINGLE_TEAM_SELECT
     else:
         select = PLAYER_SELECT if is_player else TEAM_SELECT
     select = select.format(SUM=query, TABLE=table)
 
     select += f"JOIN GAME_DATA on {table}.Game_ID = GAME_DATA.Game_ID\n"
-    
     select += f"JOIN TEAMS on {table}.Team_ID = TEAMS.Team_ID\n"
     select += f"JOIN PLAYERS on {table}.Player_ID = PLAYERS.Player_ID\n"
-
     select = _where_conditions(args, select, table, opp)
-    
+
     key = f"{table}.Player_ID" if is_player else f"{table}.Team_ID"
     select += f"\nGROUP BY {key}, {table}.Year"
     if by_game:
@@ -875,9 +918,10 @@ def get_query(args: dict, _type: str, is_player: bool, by_game: bool = False, op
 
 
 
-def game_data_query(args: dict) -> str:
+def game_data_query(args: Mapping[str, Any] | QueryArgs) -> str:
     query = GAME_DATA_SUM
-    args['stat_type'], args['league'] = None, None
-    query = _where_conditions(args, query, "GAME_DATA", False)
+    q = _coerce_query_args(args)
+    q = QueryArgs(**(q.to_dict() | {"stat_type": None, "league": None}))
+    query = _where_conditions(q, query, "GAME_DATA", False)
     query += "\nGROUP BY GAME_DATA.Game_ID, TEAMS.Team_ID"
     return query

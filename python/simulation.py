@@ -526,7 +526,7 @@ class Simulation:
                 "limit": None,
                 "team": None
             }
-            stats = self.get_stats.get_total_stats(args, OFFENSE, all_teams=True)
+            stats = self.get_stats.get_total_stats(args, OFFENSE)
             histogram = self.stats.get_histogram(team, 'offense', ALL, stats)
             self.league_histograms[team.year] = histogram
 
