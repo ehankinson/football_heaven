@@ -650,9 +650,11 @@ COVERAGE_SUM = """
 GAME_DATA_SUM = """
     SELECT
         TEAMS.Team_Name,
+        OPP_TEAMS.Team_Name,
         GAME_DATA.YEAR,
         GAME_DATA.VERSION,
         GAME_DATA.Week,
+
         COUNT(DISTINCT GAME_DATA.Game_ID) as gp,
         SUM(GAME_DATA.Points_For) as PTS_F,
         SUM(GAME_DATA.Points_Against) as PTS_AGAINST,
@@ -662,6 +664,7 @@ GAME_DATA_SUM = """
         SUM(GAME_DATA.XPA) as XPA
     FROM GAME_DATA
     JOIN TEAMS on GAME_DATA.Team_ID = TEAMS.Team_ID
+    JOIN TEAMS as OPP_TEAMS on GAME_DATA.Opponent_ID = OPP_TEAMS.Team_ID
 """
 
 
@@ -910,7 +913,8 @@ def get_query(
     select = _where_conditions(args, select, table, opp)
 
     key = f"{table}.Player_ID" if is_player else f"{table}.Team_ID"
-    select += f"\nGROUP BY {key}, {table}.Year"
+    # Include VERSION so multi-version queries don't mix rows across versions.
+    select += f"\nGROUP BY {key}, {table}.Year, {table}.Version"
     if by_game:
         select += f", {table}.Game_ID"
 
@@ -918,10 +922,13 @@ def get_query(
 
 
 
-def game_data_query(args: Mapping[str, Any] | QueryArgs) -> str:
+def game_data_query(args: QueryArgs) -> str:
     query = GAME_DATA_SUM
     q = _coerce_query_args(args)
-    q = QueryArgs(**(q.to_dict() | {"stat_type": None, "league": None}))
+    # GAME_DATA queries don't join PLAYERS and GAME_DATA doesn't have LEAGUE/TYPE columns,
+    # so ignore these QueryArgs fields to keep "same inputs as QueryArgs" safe.
+    q = QueryArgs(**(q.to_dict() | {"stat_type": None, "league": None, "pos": None}))
     query = _where_conditions(q, query, "GAME_DATA", False)
-    query += "\nGROUP BY GAME_DATA.Game_ID, TEAMS.Team_ID"
+    # Include opponent ID so the opponent team name remains deterministic under GROUP BY.
+    query += "\nGROUP BY GAME_DATA.Game_ID, GAME_DATA.Team_ID, GAME_DATA.Opponent_ID, GAME_DATA.Version"
     return query

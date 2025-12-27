@@ -7,7 +7,7 @@ A comprehensive football statistics and analytics platform for football fans who
 - `python/`: Backend Python code including database operations and API
   - `db.py`: Database operations for football statistics
   - `api.py`: Flask API to serve statistics data
-  - `constants.py`: Constants used in the database
+  - `csv_reader.py`: csv_reader used in the database
 - `frontend/`: React.js frontend
 - `db/`: SQLite database files
 - `csv/`: CSV data files with football statistics

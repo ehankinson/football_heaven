@@ -275,10 +275,10 @@ class Simulation:
     """
 
     def __init__(self):
-        self.teams = set()
         self.stats = Stats()
         self.histograms = {}
         self.team_stats = {}
+        self.teams = set()
         self.league_histograms = {}
         self.get_stats = GetStats()
 

@@ -1,10 +1,11 @@
-from dataclasses import dataclass
-from logging import Filter
 
-from queries import get_query
+from typing import Any, cast
+from dataclasses import dataclass
+
 from converter import Converter
 from query_args import QueryArgs
 from prettytable import PrettyTable
+from queries import get_query, game_data_query
 
 from db import Database
 
@@ -41,6 +42,7 @@ class SeasonStatsOptions:
     by_game: bool = False
     opp: bool = False
     valid_stats: bool = True
+    order_key: str | None = None
 
 
 
@@ -212,11 +214,11 @@ class GetStats:
         Raises:
             KeyError: If required header keys are missing from headers list
         """
-        divisor = result["Week"] if per_week else result["GP"]
+        divisor = 1 if per_week else result["GP"]
         match stat_type:
             case "passing":
                 fp_per_gp = result["FP"] / divisor
-                grade = result["PASS"]
+                grade = result["PASS"] if result["PASS"] is not None else 0
                 return round(fp_per_gp * 0.45 + grade * 0.55, 3)
             case "receiving":
                 fp_per_gp = result["FP"] / divisor
@@ -326,7 +328,7 @@ class GetStats:
         is_player: bool,
         args: QueryArgs,
         options: SeasonStatsOptions | None = None,
-    ) -> list[list]:
+    ) -> list[dict[str, str | int | float | None]]:
         """Retrieve and optionally display season statistics for players or teams.
 
         Args:
@@ -343,7 +345,7 @@ class GetStats:
         order = opts.order
         display = opts.display
         by_game = opts.by_game
-
+        order_key = opts.order_key if opts.order_key is not None else "SPRS"
         if args.stat_type is None:
             raise ValueError("QueryArgs.stat_type must be set")
         stat_type = args.stat_type
@@ -357,46 +359,111 @@ class GetStats:
         if len(results) == 0:
             raise ValueError("No results found")
 
-        header = list(results[0].keys())
-
-        final_results = []
-        header.extend(['FP', 'SPRS'])
-        for result in results:
-            result['FP'] = round(self._calculate_fantasy_points(result, stat_type), 2)
-            result['SPRS'] = round(self.calculate_sprs(result, stat_type, by_game), 3)
-
-            final_results.append(list(result.values()))
-
         if display:
+            header = list(results[0].keys())
+
+            final_results = []
+            header.extend(['FP', 'SPRS'])
+            for result in results:
+                result['FP'] = round(self._calculate_fantasy_points(result, stat_type), 2)
+                result['SPRS'] = round(self.calculate_sprs(result, stat_type, by_game), 3)
+
+                final_results.append(list(result.values()))
+
             self._print_pretty_table(
                 args,
                 header,
                 final_results,
-                sort_by="SPRS",
+                sort_by=order_key,
                 order=order,
             )
 
-        return final_results
+        return results
+
+
+    def game_data(
+        self,
+        args: QueryArgs,
+        *,
+        display: bool = False,
+        order: bool = False,
+        sort_by: str | None = None,
+    ) -> list[dict[str, int | float | str | None]]:
+        """Retrieve per-game GAME_DATA rows using the same filter inputs as QueryArgs.
+
+        Notes:
+        - Only these QueryArgs fields apply: start_week/end_week, start_year/end_year,
+          version, team, limit.
+        - stat_type/league/pos are ignored for GAME_DATA queries.
+        """
+        query = game_data_query(args)
+        query_results = self.db.call_query(query)
+
+        if len(query_results) == 0:
+            raise ValueError("No results found")
+
+        headers = [
+            "team",
+            "opponent",
+            "year",
+            "version",
+            "week",
+            "gp",
+            "pts_for",
+            "pts_against",
+            "fgm",
+            "fga",
+            "xpm",
+            "xpa",
+        ]
+
+        results: list[dict[str, int | float | str | None]] = [
+            dict(zip(headers, row)) for row in query_results
+        ]
+
+        # Apply limit (mirrors season_stats behavior)
+        if args.limit is not None:
+            results = results[: args.limit]
+
+        if display:
+            table = PrettyTable()
+            table.field_names = headers
+            rows = [list(r.values()) for r in results]
+            if sort_by is not None and sort_by not in headers:
+                raise ValueError(
+                    f"Sort by column '{sort_by}' not found in headers, "
+                    f"Please choose from: {headers}"
+                )
+            if sort_by is not None:
+                # Cast to Any so type-checkers don't require a total ordering across union types.
+                rows.sort(
+                    key=lambda x: cast(Any, x[headers.index(sort_by)]),
+                    reverse=order,
+                )
+            table.add_rows(rows)
+            print(table)
+
+        return results
 
 
 
 if __name__ == "__main__":
     ARGUMENTS = QueryArgs(
         start_week=1,
-        end_week=22,
-        start_year=2006,
-        end_year=2024,
-        stat_type="pass_rush",
+        end_week=18,
+        start_year=2013,
+        end_year=2013,
+        stat_type="passing",
         league="NFL",
         version="0.0",
         pos=None,
-        limit=50,
-        team=None,
+        limit=30,
+        team="DEN",
     )
 
     stats = GetStats()
     res = stats.season_stats(
-        is_player=PLAYER,
+        is_player=TEAM,
         args=ARGUMENTS,
-        options=SeasonStatsOptions(display=True, by_game=False, order=DESC),
+        options=SeasonStatsOptions(display=True, by_game=True, order=ASC, order_key="GP"),
     )
