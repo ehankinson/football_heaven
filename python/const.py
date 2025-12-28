@@ -10,15 +10,15 @@ Going forward, prefer importing from `const` instead of `csv_reader`.
 from datetime import datetime
 
 END_YEAR = datetime.today().year
-LEAGUES = ["NFL", "NCAA"]
+LEAGUES = ["NFL","NCAA"]
 NCAA_WEEKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 NFL_WEEKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 28, 29, 30, 32]
-PFF_LINK = "https://premium.pff.com/{league}/positions/{year}/SINGLE/{stat_type}?week={week}"
-NCAA_ADD_ON = "&division=fbs,fcs,lower"
+NFL_LINK = "https://premium.pff.com/{league}/positions/{year}/SINGLE/{stat_type}?week={week}"
+NCAA_LINK = "https://premium.pff.com/{league}/positions/{year}/SINGLE/{stat_type}?division=fbs,fcs,lower&week={week}"
 
 LEAGUE_YEARS = {
     "NFL": {
-        "start_year": 2012,
+        "start_year": 2006,
         "end_year": END_YEAR
     },
     "NCAA": {

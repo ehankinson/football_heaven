@@ -6,13 +6,13 @@ then reuse it for future runs. This avoids depending on your real Chrome profile
 from __future__ import annotations
 
 import os
+import re
 import csv
 
 from pathlib import Path
 from typing import NamedTuple
 
-from tqdm import tqdm  # type: ignore[import-untyped]
-import re
+from tqdm import tqdm
 from playwright.sync_api import (
     BrowserContext,
     Page,
@@ -24,10 +24,10 @@ from playwright.sync_api import (
 
 from const import (
     LEAGUES,
-    PFF_LINK,
+    NFL_LINK,
     NFL_WEEKS,
+    NCAA_LINK,
     NCAA_WEEKS,
-    NCAA_ADD_ON,
     LEAGUE_YEARS,
     PFF_STAT_NAME,
 )
@@ -115,6 +115,40 @@ def maybe_accept_cookies(page: Page) -> bool:
         return True
     except PlaywrightTimeoutError:
         return False
+
+
+
+def set_ncaa_division_all(page: Page) -> None:
+    """Force NCAA division filter to All (URL param is ignored)."""
+    division_filter = None
+    for getter in (
+        lambda: page.get_by_role("button", name=re.compile(r"\bdivision\b", re.I)),
+        lambda: page.locator("button.kyber-filter-dropdown__toggle:has-text('Division')"),
+    ):
+        try:
+            division_filter = getter()
+            division_filter.click(timeout=300)
+            break
+        except PlaywrightTimeoutError:
+            continue
+
+    if division_filter is None:
+        return
+
+    for getter in (
+        lambda: page.get_by_role("option", name=re.compile(r"^all$", re.I)),
+        lambda: page.get_by_role("button", name=re.compile(r"^all$", re.I)),
+        lambda: page.get_by_text(re.compile(r"^all$", re.I)),
+    ):
+        try:
+            getter().click(timeout=2000)
+            break
+        except PlaywrightTimeoutError:
+            continue
+    try:
+        division_filter.press("Escape")
+    except PlaywrightError:
+        pass
 
 
 
@@ -242,11 +276,11 @@ def main() -> None:
 
         with tqdm(total=total, desc="Downloading PFF CSVs", unit="csv") as pbar:
             for league in LEAGUES:
-                link_template = PFF_LINK if league == "NFL" else PFF_LINK + NCAA_ADD_ON
-
                 end_year = LEAGUE_YEARS[league]["end_year"]
                 start_year = LEAGUE_YEARS[league]["start_year"]
                 weeks = NFL_WEEKS if league == "NFL" else NCAA_WEEKS
+                link_template = NFL_LINK if league == "NFL" else NCAA_LINK
+
                 for year in range(start_year, end_year + 1):
                     for week in weeks:
                         for stat_type in PFF_STAT_NAME:
@@ -261,6 +295,8 @@ def main() -> None:
 
                             if not accept_cookies:
                                 accept_cookies = maybe_accept_cookies(page)
+                            if league == "NCAA":
+                                set_ncaa_division_all(page)
 
                             download_csv(
                                 page=page,
