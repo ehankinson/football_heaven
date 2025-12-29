@@ -1,4 +1,7 @@
 
+from asyncio.constants import SENDFILE_FALLBACK_READBUFFER_SIZE
+from enum import global_flag_repr
+from this import d
 from typing import Any, cast
 from dataclasses import dataclass
 
@@ -448,22 +451,26 @@ class GetStats:
 
 
 if __name__ == "__main__":
+    import sys
+    year = sys.argv[1] if len(sys.argv) > 1 else None
     ARGUMENTS = QueryArgs(
         start_week=1,
-        end_week=18,
-        start_year=2013,
-        end_year=2013,
-        stat_type="passing",
+        end_week=22,
+        start_year=year,
+        end_year=year,
+        stat_type="receiving",
         league="NFL",
         version="0.0",
         pos=None,
         limit=30,
-        team="DEN",
+        team=None,
     )
 
     stats = GetStats()
     res = stats.season_stats(
-        is_player=TEAM,
+        is_player=PLAYER,
         args=ARGUMENTS,
-        options=SeasonStatsOptions(display=True, by_game=True, order=ASC, order_key="GP"),
+        options=SeasonStatsOptions(display=True, by_game=False, order=DESC, order_key="SPRS"),
     )
+55
+30

@@ -29,7 +29,7 @@ from const import (
     NCAA_LINK,
     NCAA_WEEKS,
     LEAGUE_YEARS,
-    PFF_STAT_NAME,
+    STAT_TYPES,
 )
 
 STORAGE_STATE_PATH = Path(__file__).with_name("storage_state.json")
@@ -190,7 +190,7 @@ def download_csv(page: Page, link_info: LinkInfo, *, max_retries: int = 5) -> No
 
     # Save into repo `csv/` folder (csv/nfl or csv/ncaa).
     repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "csv" / link_info.league.lower()
+    out_dir = repo_root / "csv" / link_info.league
     out_dir.mkdir(parents=True, exist_ok=True)
 
     filename = "temp.csv"
@@ -221,7 +221,7 @@ def add_to_csv(link_info: LinkInfo) -> None:
     """
     file_name = f"{link_info.league}-{link_info.year}-{link_info.stat_type}.csv"
     repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "csv" / link_info.league.lower()
+    out_dir = repo_root / "csv" / link_info.league
 
     temp_data = out_dir / "temp.csv"
 
@@ -250,7 +250,7 @@ def calculate_total_downloads() -> int:
         start_year = LEAGUE_YEARS[league]["start_year"]
         end_year = LEAGUE_YEARS[league]["end_year"]
         weeks = NFL_WEEKS if league == "NFL" else NCAA_WEEKS
-        total += (end_year - start_year + 1) * len(weeks) * len(PFF_STAT_NAME)
+        total += (end_year - start_year + 1) * len(weeks) * len(STAT_TYPES)
 
     return total
 
@@ -283,9 +283,9 @@ def main() -> None:
 
                 for year in range(start_year, end_year + 1):
                     for week in weeks:
-                        for stat_type in PFF_STAT_NAME:
+                        for stat_type in STAT_TYPES:
                             link = link_template.format(
-                                league=league.lower(),
+                                league=league,
                                 year=year,
                                 stat_type=stat_type.lower(),
                                 week=week,

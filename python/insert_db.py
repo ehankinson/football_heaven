@@ -8,52 +8,83 @@ and normalizes certain source quirks (e.g., playoff week codes).
 import os
 import csv
 import time
-from collections.abc import Callable
 
 from queries import INSERT_START, CREATE_INDEXES, CREATE_TABLE, INSERT_TABLE
 from const import (
+    normalize_week,
+    LEAGUES,
+    STAT_TYPES,
+    LEAGUE_YEARS,
     PASSING,
+    PASSING_DEPTH,
+    PASSING_PRESSURE,
+    RECEIVING_,
+    RECEIVING_DEPTH,
+    RECEIVING_SCHEME,
     RUSHING,
     BLOCKING,
-    COVERAGE,
-    RECEIVING,
+    PASS_BLOCKING,
+    RUN_BLOCKING,
     PASS_RUSH,
     RUN_DEFENSE,
-    RUN_BLOCKING,
-    PASS_BLOCKING,
-    PASSING_DEPTH,
+    COVERAGE,
     COVERAGE_SCHEME,
-    RECEIVING_DEPTH,
-    PASSING_PRESSURE,
-    RECEIVING_SCHEME,
-    normalize_week,
 )
+
+# Maps stat_type to its list of expected column names
+STAT_TYPE_KEYS: dict[str, list[str]] = {
+    "passing": PASSING,
+    "passing-depth": PASSING_DEPTH,
+    "passing-pressure": PASSING_PRESSURE,
+    "passing-concept": [],  # Placeholder
+    "receiving": RECEIVING_,
+    "receiving-depth": RECEIVING_DEPTH,
+    "receiving-scheme": RECEIVING_SCHEME,
+    "rushing": RUSHING,
+    "offense-blocking": BLOCKING,
+    "offense-pass-blocking": PASS_BLOCKING,
+    "offense-run-blocking": RUN_BLOCKING,
+    "defense-pass-rush": PASS_RUSH,
+    "defense-run": RUN_DEFENSE,
+    "defense-coverage": COVERAGE,
+    "defense-coverage-scheme": COVERAGE_SCHEME,
+}
+
+# Stat types that have prefixed columns and need grouped insertion
+# Maps stat_type -> (base_keys_list, insert_key)
+GROUPED_STAT_TYPES: dict[str, tuple[list[str], str]] = {
+    "passing-depth": (PASSING, "passing"),
+    "passing-pressure": (PASSING, "passing"),
+    "receiving-depth": (RECEIVING_, "receiving"),
+    "receiving-scheme": (RECEIVING_, "receiving"),
+    "defense-coverage-scheme": (COVERAGE, "coverage"),
+}
+
+# Maps stat_type to INSERT_TABLE key (for simple stat types)
+STAT_TYPE_TO_INSERT_KEY: dict[str, str] = {
+    "passing": "passing",
+    "receiving": "receiving",
+    "rushing": "rushing",
+    "offense-blocking": "blocking",
+    "offense-pass-blocking": "pass_blocking",
+    "offense-run-blocking": "run_blocking",
+    "defense-pass-rush": "pass_rush",
+    "defense-run": "run_defense",
+    "defense-coverage": "coverage",
+}
 
 from db import Database
 
+RK_INDEX = 0
 PLAYER_ID = 2
-TEAM_NAME_INDEX = 1
-OPPONENT_NAME_INDEX = 4
-GAME_YEAR_INDEX = 2
-GAME_WEEK_INDEX = 3
+TEAM_NAME_INDEX = 0
+GAME_YEAR_INDEX = 1
+GAME_WEEK_INDEX = 2
+AT_SYMBOL_INDEX = 4
+NCAA_2PA_INDEX = 14
+OPPONENT_NAME_INDEX = 3
 
-START_FILE = "csv/PFF_{league}_{info}_{year}.csv"
-INFO = [
-    "Passing",
-    "Passing_Depth",
-    "Passing_Pressure",
-    "Receiving",
-    "Receiving_Depth",
-    "Receiving_Scheme",
-    "Rushing",
-    "Blocking",
-    "Pass_Blocking",
-    "Run_Blocking",
-    "Coverage",
-    "Coverage_Scheme",
-    "Pass_Rush",
-    "Run_Defense"
-]
+START_FILE = "csv/{league}/{league}-{year}-{stat_type}.csv"
 
 
 class Insert:
@@ -64,15 +95,14 @@ class Insert:
     transactions for performance. Supports multiple stat types including passing,
     receiving, rushing, blocking, defense, and coverage statistics.
     
+    Dynamically builds column index mappings from CSV headers, allowing the code
+    to handle files where column order varies between weeks/years.
+
     Attributes:
         db: Database instance for executing queries
         cache: Batch size for transaction commits (default: 100,000)
-        START_FILE: Template string for CSV file paths
-        INFO: List of stat types to process
-        TABLES: Dictionary of table creation queries
         _team_id_cache: Cache for team name to team ID lookups
         _game_id_cache: Cache for game ID lookups
-        _handlers: Dispatch table mapping stat types to handler functions
     """
 
     def __init__(self) -> None:
@@ -80,131 +110,95 @@ class Insert:
         self.cache = 100_000
         self._team_id_cache: dict[str, int | None] = {}
         self._game_id_cache: dict[tuple[int, int, int, str], int | None] = {}
-        self._handlers: dict[str, Callable[[list[str], dict], None]] = self._build_handlers()
+
+
 
     @staticmethod
-    def _normalize_week(week: int) -> int:
-        """Normalize week numbering to be human-friendly."""
-        return normalize_week(week)
+    def _normalize_week(week: int, *, is_pff_data: bool = True) -> int:
+        """Normalize week numbering to be human-friendly.
+
+        Args:
+            week: The week number from the source data.
+            is_pff_data: If True (default), applies PFF-specific adjustment for
+                playoff weeks. Set to False for games CSV data.
+        """
+        return normalize_week(week, is_pff_data=is_pff_data)
 
 
 
-    def _insert_mapping(
+    @staticmethod
+    def _build_index_mapping(headers: list[str], keys: list[str]) -> dict[str, int | None]:
+        """Build a mapping from column names to their indices in the header row.
+
+        Args:
+            headers: The header row from the CSV file
+            keys: List of column names we want to find
+
+        Returns:
+            Dictionary mapping column names to their index (or None if not found)
+        """
+        header_to_idx = {h.lower(): i for i, h in enumerate(headers)}
+        return {key: header_to_idx.get(key.lower()) for key in keys}
+
+
+
+    def _insert_with_mapping(
         self,
         row: list[str],
         base_args: dict,
         *,
-        stat_type: str,
-        key: str,
-        mapping: dict,
+        db_type: str,
+        insert_key: str,
+        mapping: dict[str, int | None],
     ) -> None:
         """Set stat metadata and insert one stat mapping into the DB."""
-        base_args["type"] = stat_type
-        base_args["key"] = key
+        base_args["type"] = db_type
+        base_args["key"] = insert_key
         self.add_into_db(row, mapping, base_args)
 
+    @staticmethod
+    def _group_keys_by_prefix(
+        index_mapping: dict[str, int | None],
+        base_keys: list[str],
+    ) -> dict[str, dict[str, int | None]]:
+        """Group index mapping keys by their prefix.
 
-    def _insert_nested(
-        self,
-        row: list[str],
-        base_args: dict,
-        *,
-        key: str,
-        nested: dict,
-        type_fmt: str,
-    ) -> None:
-        """Insert nested stat mappings (e.g. depth/area breakdowns)."""
-        for outer_key, inner in nested.items():
-            for inner_key, mapping in inner.items():
-                self._insert_mapping(
-                    row,
-                    base_args,
-                    stat_type=type_fmt.format(
-                        outer=outer_key.lower(),
-                        inner=inner_key.lower(),
-                    ),
-                    key=key,
-                    mapping=mapping,
-                )
+        For depth/scheme stats, keys have prefixes like "center_behind_los_",
+        "left_deep_", "blitz_", "man_", etc. This groups them so we can
+        insert each group with the appropriate type.
 
+        Args:
+            index_mapping: The full {column_name: index} mapping
+            base_keys: Base stat names without prefixes (e.g., ["aimed_passes", "attempts", ...])
 
-    def _build_handlers(self) -> dict[str, Callable[[list[str], dict], None]]:
-        """Build handler dispatch for INFO stat types."""
+        Returns:
+            Dict mapping prefix -> {column_name: index} for that prefix's columns
+        """
+        grouped: dict[str, dict[str, int | None]] = {}
 
-        def handle_passing_pressure(row: list[str], a: dict) -> None:
-            for pre, mapping in PASSING_PRESSURE.items():
-                self._insert_mapping(
-                    row, a, stat_type=pre.lower(), key="passing", mapping=mapping
-                )
+        for key, idx in index_mapping.items():
+            # Find which base key this column name ends with
+            prefix = key
+            for base in base_keys:
+                if key.endswith(base) or key.endswith(base.replace("_", "")):
+                    # Extract the prefix (everything before the base stat name)
+                    prefix = key[: len(key) - len(base)].rstrip("_")
+                    break
 
-        def handle_receiving_scheme(row: list[str], a: dict) -> None:
-            for scheme, mapping in RECEIVING_SCHEME.items():
-                self._insert_mapping(
-                    row, a, stat_type=scheme.lower(), key="receiving", mapping=mapping
-                )
+            if prefix not in grouped:
+                grouped[prefix] = {}
+            grouped[prefix][key] = idx
 
-        def handle_coverage_scheme(row: list[str], a: dict) -> None:
-            for scheme, mapping in COVERAGE_SCHEME.items():
-                self._insert_mapping(
-                    row, a, stat_type=scheme.lower(), key="coverage", mapping=mapping
-                )
-
-        return {
-            "Passing": lambda row, a: self._insert_mapping(
-                row, a, stat_type="passing", key="passing", mapping=PASSING
-            ),
-            "Passing_Depth": lambda row, a: self._insert_nested(
-                row, a, key="passing", nested=PASSING_DEPTH, type_fmt="{outer}_{inner}"
-            ),
-            "Passing_Pressure": handle_passing_pressure,
-            "Receiving": lambda row, a: self._insert_mapping(
-                row, a, stat_type="receiving", key="receiving", mapping=RECEIVING
-            ),
-            "Receiving_Depth": lambda row, a: self._insert_nested(
-                row, a, key="receiving", nested=RECEIVING_DEPTH, type_fmt="{outer}_{inner}"
-            ),
-            "Receiving_Scheme": handle_receiving_scheme,
-            "Rushing": lambda row, a: self._insert_mapping(
-                row, a, stat_type="rushing", key="rushing", mapping=RUSHING
-            ),
-            "Blocking": lambda row, a: self._insert_mapping(
-                row, a, stat_type="blocking", key="blocking", mapping=BLOCKING
-            ),
-            "Pass_Blocking": lambda row, a: self._insert_mapping(
-                row,
-                a,
-                stat_type="pass_blocking",
-                key="pass_blocking",
-                mapping=PASS_BLOCKING,
-            ),
-            "Run_Blocking": lambda row, a: self._insert_mapping(
-                row,
-                a,
-                stat_type="run_blocking",
-                key="run_blocking",
-                mapping=RUN_BLOCKING,
-            ),
-            "Pass_Rush": lambda row, a: self._insert_mapping(
-                row, a, stat_type="pass_rush", key="pass_rush", mapping=PASS_RUSH
-            ),
-            "Run_Defense": lambda row, a: self._insert_mapping(
-                row, a, stat_type="run_defense", key="run_defense", mapping=RUN_DEFENSE
-            ),
-            "Coverage": lambda row, a: self._insert_mapping(
-                row, a, stat_type="coverage", key="coverage", mapping=COVERAGE
-            ),
-            "Coverage_Scheme": handle_coverage_scheme,
-        }
+        return grouped
 
 
-    def _get_team_id(self, team_name: str) -> int:
-        """Return cached Team_ID for a team, raising if unknown."""
+
+    def _get_team_id(self, team_name: str) -> int | None:
+        """Return cached Team_ID for a team, or None if unknown."""
         if team_name not in self._team_id_cache:
             self._team_id_cache[team_name] = self.db.get_team_id(team_name)
-        team_id = self._team_id_cache[team_name]
-        if team_id is None:
-            raise ValueError(f"Unknown team: {team_name!r}")
-        return team_id
+        return self._team_id_cache[team_name]
+
 
 
     def _get_game_id(self, *, year: int, week: int, team_id: int, version: str) -> int | None:
@@ -221,6 +215,7 @@ class Insert:
         return self._game_id_cache[game_key]
 
 
+
     def _parse_player_id(self, raw_player_id: str) -> int:
         """Parse player_id from CSV."""
         try:
@@ -229,21 +224,32 @@ class Insert:
             raise ValueError(f"Invalid player_id: {raw_player_id!r}") from e
 
 
+
     def _process_stat_row(
         self,
-        *,
         year: int,
         league: str,
-        info: str,
+        stat_type: str,
         version: str,
         row: list[str],
+        index_mapping: dict[str, int | None],
     ) -> None:
-        """Process one CSV row and insert associated player + stat records."""
-        if row[1] == "player":
-            return
+        """Process one CSV row and insert associated player + stat records.
 
+        Args:
+            year: The year of the data
+            league: NFL or NCAA
+            stat_type: The type of stat (e.g., "passing", "rushing")
+            version: Version identifier for the data
+            row: The CSV row data
+            index_mapping: Mapping from column names to their indices in this row
+        """
         week = self._normalize_week(int(row[0]))
         team_id = self._get_team_id(row[4])
+        if team_id is None:
+            # Unknown team - skip this row
+            return
+
         game_id = self._get_game_id(year=year, week=week, team_id=team_id, version=version)
         if game_id is None:
             # Bye week / cumulative snapshot row: no corresponding game to attach stats to.
@@ -253,7 +259,7 @@ class Insert:
         # Avoid per-row commits; the surrounding transaction handles batching.
         self.db.insert_player(player_id, row[1], row[3], commit=False)
 
-        args = {
+        base_args = {
             "game_id": game_id,
             "team_id": team_id,
             "year": year,
@@ -262,11 +268,34 @@ class Insert:
             "version": version,
             "key": None,
         }
-        try:
-            handler = self._handlers[info]
-        except KeyError as e:
-            raise ValueError(f"Unhandled info type: {info}") from e
-        handler(row, args)
+
+        # Check if this is a grouped stat type (depth/scheme stats)
+        if stat_type in GROUPED_STAT_TYPES:
+            base_keys, insert_key = GROUPED_STAT_TYPES[stat_type]
+            grouped = self._group_keys_by_prefix(index_mapping, base_keys)
+
+            for prefix, group_mapping in grouped.items():
+                # Use the prefix as the db_type (e.g., "center_behind_los", "blitz", "man")
+                args = base_args.copy()
+                self._insert_with_mapping(
+                    row,
+                    args,
+                    db_type=prefix,
+                    insert_key=insert_key,
+                    mapping=group_mapping,
+                )
+        else:
+            # Simple stat type - map to INSERT_TABLE keys
+            insert_key = STAT_TYPE_TO_INSERT_KEY.get(stat_type, stat_type.replace("-", "_"))
+
+            self._insert_with_mapping(
+                row,
+                base_args,
+                db_type=stat_type.replace("-", "_"),
+                insert_key=insert_key,
+                mapping=index_mapping,
+            )
+
 
 
     def insert_teams(self) -> None:
@@ -309,39 +338,40 @@ class Insert:
         result = self.db.cursor.fetchone()
         next_game_id = 1 if result[0] is None else result[0] + 1
 
-        leagues = {"NFL": "csv/nfl_games.csv"} #, "NCAA": "csv/ncaa_games.csv"}
-        for i, (league, fil) in enumerate(leagues.items()):
+        leagues = {"NFL": "csv/NFL/nfl_games.csv", "NCAA": "csv/NCAA/ncaa_games.csv"}
+        for _, (league, fil) in enumerate(leagues.items()):
             with open(fil, "r", encoding="utf-8") as c:
                 reader = csv.reader(c)
                 for row in reader:
-                    if row[2] == "Team":
+                    if "Rk" in row[0]:
                         continue
 
-                    if league == "NCAA":
-                        row.insert(14, row[14])
+                    row.pop(AT_SYMBOL_INDEX) # removing the "@" or empty space
+                    row.pop(RK_INDEX) # removing the Rk column
 
-                    row.pop(5)
-                    row.pop(1)
+                    if league == "NFL":
+                        # Games CSV uses standard week numbering (not PFF's offset)
+                        row[GAME_WEEK_INDEX] = str(self._normalize_week(int(row[GAME_WEEK_INDEX]), is_pff_data=False))
+                        row.extend(['0'] * 4)
+                    else:
+                        row.insert(NCAA_2PA_INDEX, row[NCAA_2PA_INDEX])
 
                     team_id = self.db.get_team_id(row[TEAM_NAME_INDEX].strip())
                     opp_id = self.db.get_team_id(row[OPPONENT_NAME_INDEX].strip())
+
+                    if opp_id is None:
+                        opp_id = -1
+                    if team_id is None:
+                        team_id = -1
+
                     row[TEAM_NAME_INDEX] = str(team_id)
                     row[OPPONENT_NAME_INDEX] = str(opp_id)
-                    # Normalize playoff week encoding (29-32) to sequential weeks (19-22).
-                    row[GAME_WEEK_INDEX] = str(self._normalize_week(int(row[GAME_WEEK_INDEX])))
 
                     # Convert all available values to integers
-                    for i, r in enumerate(row):
-                        if not i:
-                            continue
-
-                        row[i] = str(int(r)) if r not in {'', None} else '0'
-
-                    if league == "NFL":
-                        row += ['0'] * 4
+                    row = [str(int(r)) if r not in {'', None} else '0' for r in row]
 
                     # Prepend GAME_ID to row
-                    row = [str(next_game_id)] + row
+                    row = [str(next_game_id), "0.0"] + row
                     next_game_id += 1
 
                     query = f"""
@@ -352,9 +382,6 @@ class Insert:
                         ) VALUES ({', '.join(['?'] * len(row))})
                     """
                     self.db.cursor.execute(query, row)
-                    if i % self.cache == 0:
-                        self.db.conn.commit()
-                        self.db.conn.execute("BEGIN TRANSACTION")
 
         self.db.conn.commit()
 
@@ -425,7 +452,7 @@ class Insert:
 
 
 
-    def insert_values(self, stat_versions: list[str], start_year: int = 2006, end_year: int = 2024):
+    def insert_values(self):
         """Insert all player statistics from CSV files into the database.
         
         Main entry point for bulk data insertion. Creates tables, inserts teams and games,
@@ -440,7 +467,7 @@ class Insert:
             
         Note:
             Uses batched commits for performance optimization. Processes files for
-            NFL league and all stat types defined in INFO.
+            NFL league and all stat types defined in stat_type.
         """
         records_processed = 0
         self.db.create_tables(CREATE_TABLE, CREATE_INDEXES)
@@ -450,44 +477,60 @@ class Insert:
         self._game_id_cache.clear()
 
         start_time = time.time()
-        for version in stat_versions:
-            if version != "0.0":
-                continue
-
+        for league in LEAGUES:
+            start_year = LEAGUE_YEARS[league]["start_year"]
+            end_year = LEAGUE_YEARS[league]["end_year"]
             for year in range(start_year, end_year + 1):
-                for league in ["NFL"]:  # , "NCAA"]:
-                    for info in INFO:
-                        csv_file = START_FILE.format(league=league, info=info, year=year)
-                        print(f"On file: {csv_file}")
+                for stat_type in STAT_TYPES:
+                    csv_file = START_FILE.format(league=league, stat_type=stat_type, year=year)
+                    print(f"On file: {csv_file}")
 
-                        if not os.path.exists(csv_file):
-                            print(f"File does not exist {csv_file}")
-                            continue
+                    if not os.path.exists(csv_file):
+                        print(f"File does not exist {csv_file}")
+                        continue
 
-                        with open(csv_file, "r", encoding="utf-8") as c:
-                            reader = csv.reader(c)
+                    with open(csv_file, "r", encoding="utf-8") as c:
+                        reader = csv.reader(c)
 
-                            # Begin transaction
-                            self.db.conn.execute("BEGIN TRANSACTION")
+                        # Begin transaction
+                        self.db.conn.execute("BEGIN TRANSACTION")
 
-                            for row in reader:
+                        # Get the expected keys for this stat type
+                        keys = STAT_TYPE_KEYS.get(stat_type, [])
+                        index_mapping: dict[str, int | None] = {}
+
+                        for row in reader:
+                            # Check if this is a header row (contains "week" in first column)
+                            if "week" in row[0].lower():
+                                # Build index mapping from this header row
+                                index_mapping = self._build_index_mapping(row, keys)
+                                continue  # Skip header row, don't process as data
+
+                            # Skip rows if we haven't seen a header yet
+                            if not index_mapping:
+                                continue
+
+                            try:
                                 self._process_stat_row(
                                     year=year,
                                     league=league,
-                                    info=info,
-                                    version=version,
+                                    stat_type=stat_type,
+                                    version="0.0",
                                     row=row,
+                                    index_mapping=index_mapping,
                                 )
-
                                 records_processed += 1
+                            except (ValueError, IndexError, KeyError):
+                                # Skip rows with issues (unknown team, missing data, etc.)
+                                continue
 
-                                # Commit in batches
-                                if records_processed % self.cache == 0:
-                                    self.db.conn.commit()
-                                    self.db.conn.execute("BEGIN TRANSACTION")
+                            # Commit in batches
+                            if records_processed % self.cache == 0:
+                                self.db.conn.commit()
+                                self.db.conn.execute("BEGIN TRANSACTION")
 
-                            # Commit any remaining changes
-                            self.db.conn.commit()
+                        # Commit any remaining changes
+                        self.db.conn.commit()
 
         end_time = time.time()
         print(f"Time taken: {end_time - start_time} seconds")
@@ -495,6 +538,5 @@ class Insert:
 
 
 if __name__ == '__main__':
-    versions = ["0.0", "0.1", "1.0", "1.1"]
     insert = Insert()
-    insert.insert_values(versions)
+    insert.insert_values()
