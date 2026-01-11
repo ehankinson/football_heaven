@@ -823,6 +823,17 @@ INSERT_TABLE = {
 }
 
 
+# Map external stat_type keys (used by callers/SUM_TABLE) to the TYPE values stored in DB.
+STAT_TYPE_FILTER_MAP = {
+    "blocking": "offense_blocking",
+    "pass_blocking": "offense_pass_blocking",
+    "run_blocking": "offense_run_blocking",
+    "pass_rush": "defense_pass_rush",
+    "run_defense": "defense_run",
+    "coverage": "defense_coverage",
+}
+
+
 
 def _coerce_query_args(args: Mapping[str, Any] | QueryArgs) -> QueryArgs:
     return args if isinstance(args, QueryArgs) else QueryArgs.from_mapping(args)
@@ -852,7 +863,8 @@ def _where_conditions(args: Mapping[str, Any] | QueryArgs, select: str, table: s
     if end_week is not None:
         conditions.append(f"GAME_DATA.WEEK <= {end_week}")
     if stat_type is not None:
-        conditions.append(f"{table}.TYPE = '{stat_type}'")
+        stat_filter = STAT_TYPE_FILTER_MAP.get(stat_type, stat_type)
+        conditions.append(f"{table}.TYPE = '{stat_filter}'")
     if league is not None:
         conditions.append(f"{table}.LEAGUE = '{league}'")
     if pos is not None:

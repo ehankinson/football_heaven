@@ -5,12 +5,8 @@ Going forward, prefer importing from `const` instead of `csv_reader`.
 `csv_reader.py` is kept for compatibility and still contains the large constant maps.
 """
 
-
-# Re-export existing csv_reader to avoid breaking imports during the transition.
-from datetime import datetime
-
-LEAGUES = ["NFL","NCAA"]
-END_YEAR = datetime.today().year
+END_YEAR = 2025
+LEAGUES = ["NFL", "NCAA"]
 VERSIONS = ["0.0", "0.1", "1.0", "1.1", "2.0", "2.1", "3.0", "3.1", "4.0"]
 NCAA_WEEKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 NFL_WEEKS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 28, 29, 30, 32]
@@ -495,8 +491,6 @@ RECEIVING_ = [
     "drops",
     "first_downs",
     "fumbles",
-    "grades_hands_drop",
-    "grades_pass_route",
     "inline_snaps",
     "interceptions",
     "penalties",
@@ -504,10 +498,12 @@ RECEIVING_ = [
     "routes",
     "slot_snaps",
     "targets",
-    "touchdows",
+    "touchdowns",
     "wide_snaps",
     "yards",
     "yards_after_catch",
+    "grades_hands_drop",
+    "grades_pass_route",
 ]
 
 
@@ -528,7 +524,7 @@ RECEIVING_DEPTH = [
     "center_behind_los_routes",
     "center_behind_los_slot_snaps",
     "center_behind_los_targets",
-    "center_behind_los_touchdows",
+    "center_behind_los_touchdowns",
     "center_behind_los_wide_snaps",
     "center_behind_los_yards",
     "center_behind_los_yards_after_catch",
@@ -547,7 +543,7 @@ RECEIVING_DEPTH = [
     "center_deep_routes",
     "center_deep_slot_snaps",
     "center_deep_targets",
-    "center_deep_touchdows",
+    "center_deep_touchdowns",
     "center_deep_wide_snaps",
     "center_deep_yards",
     "center_deep_yards_after_catch",
@@ -566,7 +562,7 @@ RECEIVING_DEPTH = [
     "center_medium_routes",
     "center_medium_slot_snaps",
     "center_medium_targets",
-    "center_medium_touchdows",
+    "center_medium_touchdowns",
     "center_medium_wide_snaps",
     "center_medium_yards",
     "center_medium_yards_after_catch",
@@ -585,7 +581,7 @@ RECEIVING_DEPTH = [
     "center_short_routes",
     "center_short_slot_snaps",
     "center_short_targets",
-    "center_short_touchdows",
+    "center_short_touchdowns",
     "center_short_wide_snaps",
     "center_short_yards",
     "center_short_yards_after_catch",
@@ -604,7 +600,7 @@ RECEIVING_DEPTH = [
     "left_behind_los_routes",
     "left_behind_los_slot_snaps",
     "left_behind_los_targets",
-    "left_behind_los_touchdows",
+    "left_behind_los_touchdowns",
     "left_behind_los_wide_snaps",
     "left_behind_los_yards",
     "left_behind_los_yards_after_catch",
@@ -623,7 +619,7 @@ RECEIVING_DEPTH = [
     "left_deep_routes",
     "left_deep_slot_snaps",
     "left_deep_targets",
-    "left_deep_touchdows",
+    "left_deep_touchdowns",
     "left_deep_wide_snaps",
     "left_deep_yards",
     "left_deep_yards_after_catch",
@@ -642,7 +638,7 @@ RECEIVING_DEPTH = [
     "left_medium_routes",
     "left_medium_slot_snaps",
     "left_medium_targets",
-    "left_medium_touchdows",
+    "left_medium_touchdowns",
     "left_medium_wide_snaps",
     "left_medium_yards",
     "left_medium_yards_after_catch",
@@ -661,7 +657,7 @@ RECEIVING_DEPTH = [
     "left_short_routes",
     "left_short_slot_snaps",
     "left_short_targets",
-    "left_short_touchdows",
+    "left_short_touchdowns",
     "left_short_wide_snaps",
     "left_short_yards",
     "left_short_yards_after_catch",
@@ -680,7 +676,7 @@ RECEIVING_DEPTH = [
     "right_behind_los_routes",
     "right_behind_los_slot_snaps",
     "right_behind_los_targets",
-    "right_behind_los_touchdows",
+    "right_behind_los_touchdowns",
     "right_behind_los_wide_snaps",
     "right_behind_los_yards",
     "right_behind_los_yards_after_catch",
@@ -699,7 +695,7 @@ RECEIVING_DEPTH = [
     "right_deep_routes",
     "right_deep_slot_snaps",
     "right_deep_targets",
-    "right_deep_touchdows",
+    "right_deep_touchdowns",
     "right_deep_wide_snaps",
     "right_deep_yards",
     "right_deep_yards_after_catch",
@@ -718,7 +714,7 @@ RECEIVING_DEPTH = [
     "right_medium_routes",
     "right_medium_slot_snaps",
     "right_medium_targets",
-    "right_medium_touchdows",
+    "right_medium_touchdowns",
     "right_medium_wide_snaps",
     "right_medium_yards",
     "right_medium_yards_after_catch",
@@ -737,7 +733,7 @@ RECEIVING_DEPTH = [
     "right_short_routes",
     "right_short_slot_snaps",
     "right_short_targets",
-    "right_short_touchdows",
+    "right_short_touchdowns",
     "right_short_wide_snaps",
     "right_short_yards",
     "right_short_yards_after_catch",
@@ -761,7 +757,7 @@ RECEIVING_SCHEME = [
     "man_routes",
     "man_slot_snaps",
     "man_targets",
-    "man_touchdows",
+    "man_touchdowns",
     "man_wide_snaps",
     "man_yards",
     "man_yards_after_catch",
@@ -780,7 +776,7 @@ RECEIVING_SCHEME = [
     "zone_routes",
     "zone_slot_snaps",
     "zone_targets",
-    "zone_touchdows",
+    "zone_touchdowns",
     "zone_wide_snaps",
     "zone_yards",
     "zone_yards_after_catch",
@@ -791,15 +787,13 @@ RECEIVING_SCHEME = [
 RUSHING = [
     "attempts",
     "avoided_tackles",
+    "breakaway_attempts",
     "breakaway_yards",
-    "brekaway_attempts",
     "designed_yards",
     "explosive",
     "first_downs",
     "fumbles",
     "gap_attempts",
-    "grades_hands_fumble",
-    "grades_run",
     "penalties",
     "run_plays",
     "scramble_yards",
@@ -808,6 +802,8 @@ RUSHING = [
     "yards",
     "yards_after_contact",
     "zone_attempts",
+    "grades_run",
+    "grades_hands_fumble",
 ]
 
 
@@ -850,8 +846,8 @@ RUN_BLOCKING = [
     "gap_grades_run_block",
     "gap_snap_counts_run_block",
     "grades_run_block",
-    "penalties",
     "snap_counts_run_block",
+    "penalties",
     "zone_grades_run_block",
     "zone_snap_counts_run_block",
 ]

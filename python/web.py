@@ -285,7 +285,7 @@ def main() -> None:
                     for week in weeks:
                         for stat_type in STAT_TYPES:
                             link = link_template.format(
-                                league=league,
+                                league=league.lower(),
                                 year=year,
                                 stat_type=stat_type.lower(),
                                 week=week,

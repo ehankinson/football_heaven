@@ -8,6 +8,7 @@ and normalizes certain source quirks (e.g., playoff week codes).
 import os
 import csv
 import time
+import re
 
 from queries import INSERT_START, CREATE_INDEXES, CREATE_TABLE, INSERT_TABLE
 from const import (
@@ -351,7 +352,10 @@ class Insert:
 
                     if league == "NFL":
                         # Games CSV uses standard week numbering (not PFF's offset)
-                        row[GAME_WEEK_INDEX] = str(self._normalize_week(int(row[GAME_WEEK_INDEX]), is_pff_data=False))
+                        row[GAME_WEEK_INDEX] = str(self._normalize_week(
+                            int(row[GAME_WEEK_INDEX]),
+                            is_pff_data=False,
+                        ))
                         row.extend(['0'] * 4)
                     else:
                         row.insert(NCAA_2PA_INDEX, row[NCAA_2PA_INDEX])
